@@ -25,6 +25,15 @@ struct send_data {
 	struct sockaddr_in red_addr;
 };
 
+
+typedef struct {
+	int socket;
+	socklen_t address_length;
+	const unsigned char *key;
+	struct sockaddr_in red_addr;
+	struct sockaddr address;
+}thread_data;
+
 void print_usage()
 {
 	printf("\nUSAGE: ./pbproxy "\
@@ -122,7 +131,7 @@ unsigned char* readFile(const char* filename)
 
 void* process_request(void* arg) {
 
-	struct send_data *data= NULL;
+	thread_data *data= NULL;
 	char buffer[PAGE_SIZE];
 	int new_sock, n;
 	unsigned const char *result=NULL;
@@ -131,17 +140,17 @@ void* process_request(void* arg) {
 	printf("%s\n", "A new thread is spawned");
 
 	if (arg == NULL) pthread_exit(NULL); 
-	data = (struct send_data *)arg;
+	data = (thread_data *)arg;
 	
 	new_sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (connect(new_sock, (struct sockaddr *)&data->red_addr, sizeof(data->red_addr)) == -1) {
 		printf("Connect failed!!!\n");
 		pthread_exit(NULL);
 	}
-	int flags = fcntl(data->new_sock, F_GETFL);
+	int flags = fcntl(data->socket, F_GETFL);
 	if (flags == -1)
 		goto exit;
-	fcntl(data->new_sock, F_SETFL, flags | O_NONBLOCK);
+	fcntl(data->socket, F_SETFL, flags | O_NONBLOCK);
 	flags = fcntl(new_sock, F_GETFL);
 	if (flags == -1)
 		goto exit;
@@ -149,7 +158,7 @@ void* process_request(void* arg) {
 
 	memset(buffer, 0, sizeof(buffer));
 	while (1) {
-		while ((n = read(data->new_sock, buffer, PAGE_SIZE)) >= 0) {
+		while ((n = read(data->socket, buffer, PAGE_SIZE)) >= 0) {
 			if (n == 0) goto exit;
 			result = decrypt_buffer((const unsigned char *)buffer, n, data->key);
 			if (result == NULL)
@@ -164,7 +173,7 @@ void* process_request(void* arg) {
 			result = encrypt_buffer((const unsigned char *)buffer, n, data->key);
 			if (result == NULL)
 				goto exit;    
-            write(data->new_sock, result, n + AES_BLOCK_SIZE);                   
+            write(data->socket, result, n + AES_BLOCK_SIZE);                   
             free((void *)result);
 			if (n < PAGE_SIZE)
 				break;
@@ -173,7 +182,7 @@ void* process_request(void* arg) {
 
 exit:
 	printf("%s\n", "Exiting!");
-	close(data->new_sock);
+	close(data->socket);
 	close(new_sock);
 	pthread_exit(NULL);
 }
@@ -316,33 +325,28 @@ int main(int argc, char *argv[]) {
 		if (listen(sockfd, 10) < 0) {
 			printf("%s\n", "Listen failed!\n");
 			return 0;
-		};
-		
-		while (1) {
-			struct sockaddr_in cli_addr;
-			socklen_t clilen;
-			int newsockfd;
-			struct send_data* sd;
-
-			clilen = sizeof(cli_addr);		
-			newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-			if (newsockfd < 0) 
-     		{
-     			printf("%s\n", "Accept failed!\n");
-				return 0;
-     		}
-     		sd = (struct send_data *)malloc(sizeof(struct send_data));
-			sd->red_addr = red_addr;
-			sd->key = key;
-			sd->new_sock = newsockfd;
-			pthread_create(&process_thread, NULL, process_request, (void *) sd);
 		}
 		
+		while (1)
+		{
+			thread_data *td;
+			td = malloc(sizeof(thread_data));
+			td->socket = accept(sockfd, &td->address, &td->address_length);
+			if (td->socket < 0) 
+			{
+				printf("%s\n", "Accept failed!\n");
+				return 0;
+			}
+
+			td->red_addr = red_addr;
+			td->key = key;
+			pthread_create(&process_thread, NULL, process_request, (void *) td);
+		}
 	}
 	else 
 	{
 		struct sockaddr_in serv_addr;
-		int sockfd, n;
+		int sockfd;
 
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
 		serv_addr.sin_family = AF_INET;
