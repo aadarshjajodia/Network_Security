@@ -235,11 +235,11 @@ void client_read_socket_write_to_stdout(int sockfd, const unsigned char *key)
 }
 
 int main(int argc, char *argv[]) {
-	bool is_server_mode = false;
+	bool is_server_mode = 0;
 	char *key_file = NULL, *destination = NULL, *destination_port = NULL, *listening_port = NULL;;
-	struct hostent *he;
 	int lcount = 0, kcount = 0, opt, dst_port, error = 0;
 	unsigned char *key = NULL;
+	struct hostent *he;
 
 	while ((opt = getopt(argc, argv, "l:k:")) != -1) {
 		switch(opt) {
@@ -253,7 +253,7 @@ int main(int argc, char *argv[]) {
 				{
 					lcount++;
 					listening_port = optarg;
-					is_server_mode = true;
+					is_server_mode = 1;
 				}
 				break;
 			case 'k':
