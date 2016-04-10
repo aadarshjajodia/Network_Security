@@ -241,8 +241,10 @@ int main(int argc, char *argv[]) {
 	unsigned char *key = NULL;
 	struct hostent *he;
 
-	while ((opt = getopt(argc, argv, "l:k:")) != -1) {
-		switch(opt) {
+	while ((opt = getopt(argc, argv, "l:k:")) != -1)
+	{
+		switch(opt)
+		{
 			case 'l':
 				if (lcount > 0) 
 				{
