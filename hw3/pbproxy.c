@@ -235,15 +235,11 @@ void client_read_socket_write_to_stdout(int sockfd, const unsigned char *key)
 }
 
 int main(int argc, char *argv[]) {
-	int opt, dst_port, error = 0;
-	char *listening_port = NULL;
 	bool is_server_mode = false;
-	char *key_file = NULL;
-	char *destination = NULL;
-	char *destination_port = NULL;
-	unsigned char *key = NULL;
+	char *key_file = NULL, *destination = NULL, *destination_port = NULL, *listening_port = NULL;;
 	struct hostent *he;
-	int lcount = 0, kcount = 0;
+	int lcount = 0, kcount = 0, opt, dst_port, error = 0;
+	unsigned char *key = NULL;
 
 	while ((opt = getopt(argc, argv, "l:k:")) != -1) {
 		switch(opt) {
@@ -309,10 +305,11 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 	
-	if (is_server_mode == true) {
-		struct sockaddr_in serv_addr, red_addr;
+	struct sockaddr_in serv_addr, red_addr;
+	int sockfd;
+	if (is_server_mode) 
+	{
 		pthread_t process_thread;
-		int sockfd;
 		int portno;
 
 		portno = atoi(listening_port);
@@ -355,8 +352,6 @@ int main(int argc, char *argv[]) {
 	}
 	else 
 	{
-		struct sockaddr_in serv_addr;
-		int sockfd;
 
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
 		serv_addr.sin_family = AF_INET;
