@@ -260,6 +260,25 @@ void client_read_socket_write_to_stdout(int sockfd, const unsigned char *key)
 	}
 }
 
+int client_connect_to_server(struct hostent *he, int dst_port)
+{
+	int sockfd;
+	struct sockaddr_in server_address;
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	server_address.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
+	server_address.sin_family = AF_INET;
+	server_address.sin_port = htons(dst_port);
+	
+	if (connect(sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) == -1) 
+	{
+		printf("%s\n", "Connect failed");
+		return 0;
+	}
+	
+	fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+	fcntl(sockfd, F_SETFL, O_NONBLOCK);
+	return sockfd;
+}
 int main(int argc, char *argv[]) {
 	bool is_server_mode = 0;
 	char *key_file = NULL, *destination = NULL, *destination_port = NULL, *listening_port = NULL;;
@@ -380,21 +399,9 @@ int main(int argc, char *argv[]) {
 	}
 	else 
 	{
-
-		sockfd = socket(AF_INET, SOCK_STREAM, 0);
-		server_address.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
-		server_address.sin_family = AF_INET;
-		server_address.sin_port = htons(dst_port);
-		
-		if (connect(sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) == -1) 
-		{
-			printf("%s\n", "Connect failed");
+		sockfd = client_connect_to_server(he, dst_port);
+		if(sockfd == 0)
 			return 0;
-		}
-		
-		fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
-		fcntl(sockfd, F_SETFL, O_NONBLOCK);
-		
 		while(1) 
 		{
 			client_read_stdin_write_to_socket(sockfd, key);
