@@ -53,24 +53,35 @@ void init_ctr(ctr_state *state, const unsigned char iv[16])
     memcpy(state->ivec, iv, 8);
 }
 
+unsigned char* generate_iv_for_aes(ctr_state *state)
+{
+	unsigned char *iv;
+	iv = (unsigned char *)malloc(sizeof(unsigned char) * AES_BLOCK_SIZE);
+	if(!RAND_bytes(iv, AES_BLOCK_SIZE)) {
+        printf("%s\n", "Failed to generate IV!!!");
+        return NULL;
+    }
+    init_ctr(state, iv);
+    return iv;
+}
 unsigned char * encrypt_buf(int n, const unsigned char *key, const unsigned char *buf)
 {
 	AES_KEY aes_key;
-	unsigned char iv[AES_BLOCK_SIZE];
+	unsigned char *iv;
 	unsigned char *result = NULL;
 	ctr_state state;
 
-    if(!RAND_bytes(iv, AES_BLOCK_SIZE)) {
-        printf("%s\n", "Error in random bytes generation!!!");
-        return NULL;    
-    }
+	iv = generate_iv_for_aes(&state);
+	if(iv == NULL)
+		return NULL;
+
     if (AES_set_encrypt_key(key, 128, &aes_key) < 0) {
         printf("%s\n", "AES set encryption key error");
         return NULL;
     }
     result = (unsigned char *) malloc(n + AES_BLOCK_SIZE);
     memcpy(result, iv, AES_BLOCK_SIZE);
-    init_ctr(&state, iv);
+
     AES_ctr128_encrypt(buf, result + AES_BLOCK_SIZE, n, &aes_key,
     	state.ivec, state.ecount, &state.num);
     return result;    
