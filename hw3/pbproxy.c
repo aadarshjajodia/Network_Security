@@ -230,15 +230,15 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
-	if (optind == argc - 2) 
-	{
-		destination = argv[optind];
-		destination_port = argv[optind+1];
-	}
-	else 
+	if (optind < argc - 2) 
 	{
 		print_usage();	
 		return 0;
+	}
+	else
+	{
+		destination = argv[optind];
+		destination_port = argv[optind+1];
 	}
 	
 	key = readFile(key_file);
@@ -254,7 +254,6 @@ int main(int argc, char *argv[]) {
 	}
 	
 	if (is_server_mode == true) {
-		// pbproxy - server mode
 		struct sockaddr_in serv_addr, red_addr;
 		pthread_t process_thread;
 		int sockfd;
@@ -303,8 +302,8 @@ int main(int argc, char *argv[]) {
 		}
 		
 	}
-	else {
-		// pbproxy - client mode
+	else 
+	{
 		struct sockaddr_in serv_addr;
 		int sockfd, n;
 		char buffer[PAGE_SIZE];
@@ -316,7 +315,8 @@ int main(int argc, char *argv[]) {
 		serv_addr.sin_port = htons(dst_port);
 		serv_addr.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
 		
-		if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1) {
+		if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1) 
+		{
 			printf("%s\n", "Connect failed");
 			return 0;
 		}
@@ -324,22 +324,28 @@ int main(int argc, char *argv[]) {
 		fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
 		fcntl(sockfd, F_SETFL, O_NONBLOCK);
 		
-		while(1) {
-			while ((n = read(STDIN_FILENO, buffer, PAGE_SIZE)) >= 0) {
-				if (n == 0) goto exit;
+		while(1) 
+		{
+			while ((n = read(STDIN_FILENO, buffer, PAGE_SIZE)) >= 0) 
+			{
+				if (n == 0)
+					return 0;
 				result = encrypt_buffer((const unsigned char *)buffer, n, key);
 				if (result == NULL)
-					goto exit; 
+					return 0;
 				write(sockfd, result, n + AES_BLOCK_SIZE);
 				free((void *) result);
 				if (n < PAGE_SIZE)
 					break;
 			}
-			while ((n = read(sockfd, buffer, PAGE_SIZE)) >= 0) {
-				if (n == 0) goto exit;
+			while ((n = read(sockfd, buffer, PAGE_SIZE)) >= 0) 
+			{
+				if (n == 0)
+					return 0;
+
 				result = decrypt_buffer((const unsigned char *)buffer, n, key);
 				if (result == NULL)
-					goto exit;
+					return 0;
 				write(STDOUT_FILENO, result, n - AES_BLOCK_SIZE);
 				free((void *)result);
 				if (n < PAGE_SIZE)
@@ -347,7 +353,4 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-
-exit:
-	return 0;
 }
