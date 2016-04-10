@@ -53,7 +53,7 @@ void init_ctr(ctr_state *state, const unsigned char iv[16])
     memcpy(state->ivec, iv, 8);
 }
 
-unsigned char * encrypt_buffer(const unsigned char *buf, int n, const unsigned char *key)
+unsigned char * encrypt_buf(int n, const unsigned char *key, const unsigned char *buf)
 {
 	AES_KEY aes_key;
 	unsigned char iv[AES_BLOCK_SIZE];
@@ -76,7 +76,7 @@ unsigned char * encrypt_buffer(const unsigned char *buf, int n, const unsigned c
     return result;    
 }
 
-unsigned char * decrypt_buffer(const unsigned char *buf, int n, const unsigned char *key)
+unsigned char * decrypt_buf(int n, const unsigned char *key, const unsigned char *buf)
 {
 	AES_KEY aes_key;
 	unsigned char iv[AES_BLOCK_SIZE];
@@ -97,23 +97,39 @@ unsigned char * decrypt_buffer(const unsigned char *buf, int n, const unsigned c
 
 unsigned char* readFile(const char* filename)
 {
-	unsigned char *buffer = NULL;
-	long length;
+	unsigned char *source = NULL;
 	FILE *fp = fopen(filename, "r");
-	if (fp)
+	if (fp != NULL) 
 	{
-		// Using fseek to calculate the length of the file. 
-		fseek(fp, 0, SEEK_END);
-		length = ftell(fp);
+    	/* Go to the end of the file. */
+    	if (fseek(fp, 0L, SEEK_END) == 0) 
+    	{
+	        /* Get the size of the file. */
+	        long bufsize = ftell(fp);
+	        if (bufsize == -1)
+	        	return NULL;
 
-		// Using fseek to to move the file pointer to the beginning of the file. 
-		fseek(fp, 0, SEEK_SET);
-		buffer = malloc(length);
-		if (buffer)
-			fread(buffer, 1, length, fp);
-		fclose (fp);
-	}
-	return buffer;
+	        /* Allocate our buffer to that size. */
+	        source = malloc(sizeof(char) * (bufsize + 1));
+
+	        /* Go back to the start of the file. */
+	        if (fseek(fp, 0L, SEEK_SET) != 0)
+	        	return NULL;
+
+	        /* Read the entire file into memory. */
+	        size_t newLen = fread(source, sizeof(char), bufsize, fp);
+	        if (newLen == 0)
+	        {
+	        	free(source);
+	        	return NULL;
+	        }
+	        source[newLen++] = '\0'; /* Just to be safe. */
+	        fclose(fp);
+	        return source;
+    	}
+    	return NULL;
+    }
+    return NULL;
 }
 
 int read_from_pbproxy_write_to_server(int new_sock, thread_data *data)
@@ -126,7 +142,7 @@ int read_from_pbproxy_write_to_server(int new_sock, thread_data *data)
 	{
 		if (n == 0)
 			return -1;
-		result = decrypt_buffer((const unsigned char *)buffer, n, data->key);
+		result = decrypt_buf(n, data->key, (const unsigned char *)buffer);
 		if (result == NULL)
 			return -1;
 		write(new_sock, result, n - AES_BLOCK_SIZE);
@@ -146,7 +162,7 @@ int read_from_server_write_to_pbproxy(int new_sock, thread_data *data)
 	{
 		if (n == 0)
 			return -1;
-		result = encrypt_buffer((const unsigned char *)buffer, n, data->key);
+		result = encrypt_buf(n, data->key, (const unsigned char *)buffer);
 		if (result == NULL)
 			return -1;
 	    write(data->socket, result, n + AES_BLOCK_SIZE);                   
@@ -205,7 +221,7 @@ void client_read_stdin_write_to_socket(int sockfd, const unsigned char *key)
 	{
 		if (n == 0)
 			exit(0);
-		result = encrypt_buffer((const unsigned char *)buffer, n, key);
+		result = encrypt_buf(n, key, (const unsigned char *)buffer);
 		if (result == NULL)
 			exit(0);
 		write(sockfd, result, n + AES_BLOCK_SIZE);
@@ -224,7 +240,7 @@ void client_read_socket_write_to_stdout(int sockfd, const unsigned char *key)
 		if (n == 0)
 			exit(0);
 
-		result = decrypt_buffer((const unsigned char *)buffer, n, key);
+		result = decrypt_buf(n, key, (const unsigned char *)buffer);
 		if (result == NULL)
 			exit(0);
 		write(STDOUT_FILENO, result, n - AES_BLOCK_SIZE);
