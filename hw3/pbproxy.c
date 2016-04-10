@@ -178,6 +178,43 @@ exit:
 	pthread_exit(NULL);
 }
 
+void read_stdin_write_to_socket(int sockfd, const unsigned char *key)
+{
+	unsigned char *result = NULL;
+	int n;
+	char buffer[PAGE_SIZE];
+	while ((n = read(STDIN_FILENO, buffer, PAGE_SIZE)) >= 0) 
+	{
+		if (n == 0)
+			exit(0);
+		result = encrypt_buffer((const unsigned char *)buffer, n, key);
+		if (result == NULL)
+			exit(0);
+		write(sockfd, result, n + AES_BLOCK_SIZE);
+		free((void *) result);
+		if (n < PAGE_SIZE)
+			break;
+	}
+}
+void read_socket_write_to_stdout(int sockfd, const unsigned char *key)
+{
+	unsigned char *result = NULL;
+	int n;
+	char buffer[PAGE_SIZE];
+	while ((n = read(sockfd, buffer, PAGE_SIZE)) >= 0) 
+	{
+		if (n == 0)
+			exit(0);
+
+		result = decrypt_buffer((const unsigned char *)buffer, n, key);
+		if (result == NULL)
+			exit(0);
+		write(STDOUT_FILENO, result, n - AES_BLOCK_SIZE);
+		free((void *)result);
+		if (n < PAGE_SIZE)
+			break;
+	}
+}
 int main(int argc, char *argv[]) {
 	int opt, dst_port, error = 0;
 	char *listening_port = NULL;
@@ -306,11 +343,8 @@ int main(int argc, char *argv[]) {
 	{
 		struct sockaddr_in serv_addr;
 		int sockfd, n;
-		char buffer[PAGE_SIZE];
-		unsigned const char *result=NULL;
 
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
-		
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_port = htons(dst_port);
 		serv_addr.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
@@ -326,31 +360,8 @@ int main(int argc, char *argv[]) {
 		
 		while(1) 
 		{
-			while ((n = read(STDIN_FILENO, buffer, PAGE_SIZE)) >= 0) 
-			{
-				if (n == 0)
-					return 0;
-				result = encrypt_buffer((const unsigned char *)buffer, n, key);
-				if (result == NULL)
-					return 0;
-				write(sockfd, result, n + AES_BLOCK_SIZE);
-				free((void *) result);
-				if (n < PAGE_SIZE)
-					break;
-			}
-			while ((n = read(sockfd, buffer, PAGE_SIZE)) >= 0) 
-			{
-				if (n == 0)
-					return 0;
-
-				result = decrypt_buffer((const unsigned char *)buffer, n, key);
-				if (result == NULL)
-					return 0;
-				write(STDOUT_FILENO, result, n - AES_BLOCK_SIZE);
-				free((void *)result);
-				if (n < PAGE_SIZE)
-					break;
-			}
+			read_stdin_write_to_socket(sockfd, key);
+			read_socket_write_to_stdout(sockfd, key);
 		}
 	}
 }
