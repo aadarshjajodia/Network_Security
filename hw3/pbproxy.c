@@ -183,17 +183,13 @@ int read_from_server_write_to_pbproxy(int new_sock, thread_data *data)
 	}
 	return 0;
 }
-void* process_request(void* arg) {
-
-	thread_data *data= NULL;
+void* process_request(void* arg)
+{
+	if (arg == NULL) pthread_exit(NULL);
+	thread_data *data = (thread_data *)arg;
 	int new_sock;
 	pthread_detach(pthread_self());
 
-	// Error Checks
-	if (arg == NULL) pthread_exit(NULL); 
-	data = (thread_data *)arg;
-
-	// Error Checks
 	int flags = fcntl(data->socket, F_GETFL);
 	if (flags == -1)
 		goto exit;
