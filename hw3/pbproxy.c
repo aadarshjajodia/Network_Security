@@ -337,13 +337,13 @@ int main(int argc, char *argv[]) {
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
 		bzero((char *) &serv_addr, sizeof(serv_addr));
 
-		serv_addr.sin_family = AF_INET;
-   		serv_addr.sin_addr.s_addr = INADDR_ANY;
    		serv_addr.sin_port = htons(portno);
+   		serv_addr.sin_family = AF_INET;
+   		serv_addr.sin_addr.s_addr = INADDR_ANY;
 		
+		red_addr.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
 		red_addr.sin_family = AF_INET;
 		red_addr.sin_port = htons(dst_port);
-		red_addr.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
 		
 		if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
         {
