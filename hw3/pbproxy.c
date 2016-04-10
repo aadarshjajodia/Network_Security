@@ -99,20 +99,23 @@ unsigned char * decrypt_buffer(const unsigned char *buf, int n, const unsigned c
     return result;
 }
 
-unsigned char* read_file(const char* filename)
+unsigned char* readFile(const char* filename)
 {
 	unsigned char *buffer = NULL;
 	long length;
-	FILE *f = fopen(filename, "r");
-	if (f)
+	FILE *fp = fopen(filename, "r");
+	if (fp)
 	{
-		fseek(f, 0, SEEK_END);
-		length = ftell(f);
-		fseek(f, 0, SEEK_SET);
+		// Using fseek to calculate the length of the file. 
+		fseek(fp, 0, SEEK_END);
+		length = ftell(fp);
+
+		// Using fseek to to move the file pointer to the beginning of the file. 
+		fseek(fp, 0, SEEK_SET);
 		buffer = malloc(length);
 		if (buffer)
-			fread(buffer, 1, length, f);
-		fclose (f);
+			fread(buffer, 1, length, fp);
+		fclose (fp);
 	}
 	return buffer;
 }
@@ -238,7 +241,7 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 	
-	key = read_file(key_file);
+	key = readFile(key_file);
 	if (!key) {
 		printf("Reading file failed!!!\n");
 		return 0;
