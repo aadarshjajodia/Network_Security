@@ -1,6 +1,7 @@
-CC=gcc
+all: clean pbproxy
 
-all: PBProxy
+pbproxy: pbproxy.c
+	gcc -g pbproxy.c -o pbproxy -Werror -lcrypto -lpthread -I /usr/local/include/node/
 
-PBProxy:
-	$(CC) pbproxy.c -o pbproxy -lssl -lcrypto -I /usr/local/include/node/
+clean:
+	rm -f *~ *.o *.out
