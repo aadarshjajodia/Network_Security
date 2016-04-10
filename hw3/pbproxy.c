@@ -23,7 +23,7 @@ typedef struct {
 	int socket;
 	socklen_t address_length;
 	const unsigned char *key;
-	struct sockaddr_in red_addr;
+	struct sockaddr_in server_redirect_address;
 	struct sockaddr address;
 }thread_data;
 
@@ -196,7 +196,7 @@ void* process_request(void* arg)
 	fcntl(data->socket, F_SETFL, flags | O_NONBLOCK);
 	
 	new_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (connect(new_sock, (struct sockaddr *)&data->red_addr, sizeof(data->red_addr)) == -1)
+	if (connect(new_sock, (struct sockaddr *)&data->server_redirect_address, sizeof(data->server_redirect_address)) == -1)
 	{
 		printf("Connect failed!!!\n");
 		pthread_exit(NULL);
@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 	
-	struct sockaddr_in serv_addr, red_addr;
+	struct sockaddr_in server_address, server_redirect_address;
 	int sockfd;
 	if (is_server_mode) 
 	{
@@ -342,17 +342,17 @@ int main(int argc, char *argv[]) {
 
 		portno = atoi(listening_port);
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
-		bzero((char *) &serv_addr, sizeof(serv_addr));
+		bzero((char *) &server_address, sizeof(server_address));
 
-   		serv_addr.sin_port = htons(portno);
-   		serv_addr.sin_family = AF_INET;
-   		serv_addr.sin_addr.s_addr = INADDR_ANY;
+   		server_address.sin_port = htons(portno);
+   		server_address.sin_family = AF_INET;
+   		server_address.sin_addr.s_addr = INADDR_ANY;
 		
-		red_addr.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
-		red_addr.sin_family = AF_INET;
-		red_addr.sin_port = htons(dst_port);
+		server_redirect_address.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
+		server_redirect_address.sin_family = AF_INET;
+		server_redirect_address.sin_port = htons(dst_port);
 		
-		if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
+		if (bind(sockfd, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) 
         {
         	printf("%s\n", "ERROR in Binding");
         	return 0;
@@ -373,7 +373,7 @@ int main(int argc, char *argv[]) {
 				return 0;
 			}
 
-			td->red_addr = red_addr;
+			td->server_redirect_address = server_redirect_address;
 			td->key = key;
 			pthread_create(&process_thread, NULL, process_request, (void *) td);
 		}
@@ -382,11 +382,11 @@ int main(int argc, char *argv[]) {
 	{
 
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
-		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_port = htons(dst_port);
-		serv_addr.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
+		server_address.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
+		server_address.sin_family = AF_INET;
+		server_address.sin_port = htons(dst_port);
 		
-		if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1) 
+		if (connect(sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) == -1) 
 		{
 			printf("%s\n", "Connect failed");
 			return 0;
