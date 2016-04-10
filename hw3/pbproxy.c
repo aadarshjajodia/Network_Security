@@ -37,25 +37,19 @@ void print_usage()
 	printf("destination_port : destination port to be relayed to\n\n");
 
 }
-/* Strcutures taken from http://stackoverflow.com/questions/29441005/aes-ctr-encryption-and-decryption */
-struct ctr_state 
+
+typedef struct
 { 
     unsigned char ivec[AES_BLOCK_SIZE];  
     unsigned int num; 
     unsigned char ecount[AES_BLOCK_SIZE]; 
-}; 
+}ctr_state;
 
-void init_ctr(struct ctr_state *state, const unsigned char iv[16])
+void init_ctr(ctr_state *state, const unsigned char iv[16])
 {        
-    /* aes_ctr128_encrypt requires 'num' and 'ecount' set to zero on the
-     * first call. */
     state->num = 0;
     memset(state->ecount, 0, AES_BLOCK_SIZE);
-
-    /* Initialise counter in 'ivec' to 0 */
     memset(state->ivec + 8, 0, 8);
-
-    /* Copy IV into 'ivec' */
     memcpy(state->ivec, iv, 8);
 }
 
@@ -64,7 +58,7 @@ unsigned char * encrypt_buffer(const unsigned char *buf, int n, const unsigned c
 	AES_KEY aes_key;
 	unsigned char iv[AES_BLOCK_SIZE];
 	unsigned char *result = NULL;
-	struct ctr_state state;
+	ctr_state state;
 
     if(!RAND_bytes(iv, AES_BLOCK_SIZE)) {
         printf("%s\n", "Error in random bytes generation!!!");
@@ -87,7 +81,7 @@ unsigned char * decrypt_buffer(const unsigned char *buf, int n, const unsigned c
 	AES_KEY aes_key;
 	unsigned char iv[AES_BLOCK_SIZE];
 	unsigned char *result = NULL;
-	struct ctr_state state;
+	ctr_state state;
 
     if ((AES_set_encrypt_key(key, 128, &aes_key)) < 0) {
         printf("%s\n", "AES set encryption key error");
