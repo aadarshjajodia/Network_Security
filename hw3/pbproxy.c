@@ -19,13 +19,6 @@
 
 #define PAGE_SIZE 4096
 
-struct send_data {
-	int new_sock;
-	const unsigned char *key;
-	struct sockaddr_in red_addr;
-};
-
-
 typedef struct {
 	int socket;
 	socklen_t address_length;
@@ -187,7 +180,7 @@ exit:
 	pthread_exit(NULL);
 }
 
-void read_stdin_write_to_socket(int sockfd, const unsigned char *key)
+void client_read_stdin_write_to_socket(int sockfd, const unsigned char *key)
 {
 	unsigned char *result = NULL;
 	int n;
@@ -205,7 +198,7 @@ void read_stdin_write_to_socket(int sockfd, const unsigned char *key)
 			break;
 	}
 }
-void read_socket_write_to_stdout(int sockfd, const unsigned char *key)
+void client_read_socket_write_to_stdout(int sockfd, const unsigned char *key)
 {
 	unsigned char *result = NULL;
 	int n;
@@ -364,8 +357,8 @@ int main(int argc, char *argv[]) {
 		
 		while(1) 
 		{
-			read_stdin_write_to_socket(sockfd, key);
-			read_socket_write_to_stdout(sockfd, key);
+			client_read_stdin_write_to_socket(sockfd, key);
+			client_read_socket_write_to_stdout(sockfd, key);
 		}
 	}
 }
