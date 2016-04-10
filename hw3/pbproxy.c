@@ -176,7 +176,7 @@ exit:
 }
 
 int main(int argc, char *argv[]) {
-	int opt, dst_port, err_flag = 0;
+	int opt, dst_port, error = 0;
 	char *reverse_port = NULL;
 	bool is_server_mode = false;
 	char *key_file = NULL;
@@ -184,41 +184,44 @@ int main(int argc, char *argv[]) {
 	char *destination_port = NULL;
 	unsigned char *key = NULL;
 	struct hostent *he;
-	int l_flag = 0, k_flag = 0;
+	int lcount = 0, kcount = 0;
 
 	while ((opt = getopt(argc, argv, "l:k:")) != -1) {
 		switch(opt) {
 			case 'l':
-				if (l_flag) {
-					printf("Can't use -l option more than once\n");
-					err_flag = 1;
+				if (lcount > 0) 
+				{
+					printf("-l option can be used only once\n");
+					error = 1;
 				}
-				else {
+				else
+				{
+					lcount++;
 					reverse_port = optarg;
 					is_server_mode = true;
-					l_flag = 1;
 				}
 				break;
 			case 'k':
-				if (k_flag) {
-					printf("Can't use -k option more than once\n");
-					err_flag = 1;
+				if (kcount > 0) 
+				{
+					printf("-k option can be used only once\n");
+					error = 1;
 				}
-				else {
+				else
+				{
+					kcount++;
 					key_file = optarg;
-					k_flag = 1;
 				}
 				break;
 			case '?':
-				printf("Unknown option: - %c\n", optopt);
-				err_flag = 1;
+				error = 1;
 				break;
 			default:
-				err_flag = 1;
+				error = 1;
 		}
 	}
 	
-	if (key_file == NULL || err_flag)
+	if (key_file == NULL || error)
 	{
 		print_usage();	
 		return 0;
