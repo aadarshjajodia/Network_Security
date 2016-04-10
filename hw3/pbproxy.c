@@ -28,7 +28,7 @@ struct send_data {
 void print_usage()
 {
 	printf("\nUSAGE: ./pbproxy "\
-	       "[-l reverse_port] [-k key_input_file] [destination] [destination_port]\n");
+	       "[-l listening_port] [-k key_input_file] [destination] [destination_port]\n");
 	printf("-l : proxy port for inbound connections\n");
 	printf("-k: input key file\n");
 	printf("destination : destination address to be relayed to\n");
@@ -177,7 +177,7 @@ exit:
 
 int main(int argc, char *argv[]) {
 	int opt, dst_port, error = 0;
-	char *reverse_port = NULL;
+	char *listening_port = NULL;
 	bool is_server_mode = false;
 	char *key_file = NULL;
 	char *destination = NULL;
@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
 				else
 				{
 					lcount++;
-					reverse_port = optarg;
+					listening_port = optarg;
 					is_server_mode = true;
 				}
 				break;
@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
 		int sockfd;
 		int portno;
 
-		portno = atoi(reverse_port);
+		portno = atoi(listening_port);
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
 		bzero((char *) &serv_addr, sizeof(serv_addr));
 
