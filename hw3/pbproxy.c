@@ -1,19 +1,89 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <pthread.h>
+#include <unistd.h>
+#include <stdbool.h>
 
 #include <openssl/aes.h>
 #include <openssl/rand.h> 
 #include <openssl/hmac.h>
 #include <openssl/buffer.h>
 
+#define PAGE_SIZE 4096
+
+
+typedef struct 
+{
+	int socket;
+	socklen_t address_length;
+	const unsigned char *key;
+	struct sockaddr_in red_addr;
+	struct sockaddr address;
+}thread_data;
+
+typedef struct 
+{ 
+    unsigned char ivec[AES_BLOCK_SIZE];  
+    unsigned int num; 
+    unsigned char ecount[AES_BLOCK_SIZE]; 
+}ctr_state; 
+
+void init_ctr(ctr_state *state, const unsigned char iv[16])
+{        
+    state->num = 0;
+    memset(state->ecount, 0, AES_BLOCK_SIZE);
+    memset(state->ivec + 8, 0, 8);
+    memcpy(state->ivec, iv, 8);
+}
+unsigned char * encrypt_buf(const unsigned char *buf, int n, const unsigned char *key)
+{
+	AES_KEY aes_key;
+	unsigned char iv[AES_BLOCK_SIZE];
+	unsigned char *result = NULL;
+	ctr_state state;
+
+    if(!RAND_bytes(iv, AES_BLOCK_SIZE)) {
+        printf("%s\n", "Unable to generate Random Bytes Needed for Initialization Vector");
+        return NULL;    
+    }
+    if (AES_set_encrypt_key(key, 128, &aes_key) < 0) {
+        printf("%s\n", "Unable to set key needed for AES encryption");
+        return NULL;
+    }
+    result = (unsigned char *) malloc(n + AES_BLOCK_SIZE);
+    memcpy(result, iv, AES_BLOCK_SIZE);
+    init_ctr(&state, iv);
+    AES_ctr128_encrypt(buf, result + AES_BLOCK_SIZE, n, &aes_key,
+    	state.ivec, state.ecount, &state.num);
+    return result;    
+}
+
+unsigned char * decrypt_buf(const unsigned char *buf, int n, const unsigned char *key)
+{
+	AES_KEY aes_key;
+	unsigned char iv[AES_BLOCK_SIZE];
+	unsigned char *result = NULL;
+	ctr_state state;
+
+    if ((AES_set_encrypt_key(key, 128, &aes_key)) < 0) {
+        printf("%s\n", "Unable to set key needed for AES decryption");
+        return NULL;
+    }
+    memcpy(iv, buf, AES_BLOCK_SIZE);
+    init_ctr(&state, iv);
+    result = (unsigned char *) malloc(n - AES_BLOCK_SIZE);
+    AES_ctr128_encrypt(buf + AES_BLOCK_SIZE, result, n - AES_BLOCK_SIZE,
+    	&aes_key, state.ivec, state.ecount, &state.num);
+    return result;
+}
 void print_usage()
 {
 	printf("Usage is");
@@ -29,13 +99,6 @@ int fsize(FILE *fp){
     return sz;
 }
 
-typedef struct {
-	int socket;
-	socklen_t address_length;
-	const unsigned char *key;
-	struct sockaddr_in red_addr;
-	struct sockaddr address;
-}thread_data;
 
 void* process_request(void* arg) {
 	return NULL;
@@ -194,5 +257,26 @@ int main(int argc, char *argv[])
 			td->key = key;
 			pthread_create(&process_thread, NULL, process_request, (void *) td);
 		}
+	}
+	else
+	{
+		// pbproxy - client mode
+		struct sockaddr_in serv_addr;
+		int sockfd, n;
+		char buffer[PAGE_SIZE];
+		unsigned const char *result=NULL;
+		sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+		serv_addr.sin_family = AF_INET;
+		serv_addr.sin_port = htons(dest_port);
+		serv_addr.sin_addr.s_addr = ((struct in_addr *)(he->h_addr_list[0]))->s_addr;
+
+		if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1) {
+			printf("%s\n", "Connect failed");
+			return 0;
+		}
+		fprintf(stderr, "Connected to server\n");
+		fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+		fcntl(sockfd, F_SETFL, O_NONBLOCK);
 	}
 }
