@@ -116,24 +116,62 @@ unsigned char* readFile(const char* filename)
 	return buffer;
 }
 
+int read_from_pbproxy_write_to_server(int new_sock, thread_data *data)
+{
+	char buffer[PAGE_SIZE];
+	int n;
+	unsigned const char *result=NULL;
+	memset(buffer, 0, sizeof(buffer));
+	while ((n = read(data->socket, buffer, PAGE_SIZE)) >= 0) 
+	{
+		if (n == 0)
+			return -1;
+		result = decrypt_buffer((const unsigned char *)buffer, n, data->key);
+		if (result == NULL)
+			return -1;
+		write(new_sock, result, n - AES_BLOCK_SIZE);
+		free((void *)result);
+		if (n < PAGE_SIZE)
+			break;
+	}
+	return 0;
+}
+int read_from_server_write_to_pbproxy(int new_sock, thread_data *data)
+{
+	char buffer[PAGE_SIZE];
+	int n;
+	unsigned const char *result=NULL;
+	memset(buffer, 0, sizeof(buffer));
+	while ((n = read(new_sock, buffer, PAGE_SIZE)) > 0) 
+	{
+		if (n == 0)
+			return -1;
+		result = encrypt_buffer((const unsigned char *)buffer, n, data->key);
+		if (result == NULL)
+			return -1;
+	    write(data->socket, result, n + AES_BLOCK_SIZE);                   
+	    free((void *)result);
+		if (n < PAGE_SIZE)
+			break;
+	}
+	return 0;
+}
 void* process_request(void* arg) {
 
 	thread_data *data= NULL;
-	char buffer[PAGE_SIZE];
-	int new_sock, n;
-	unsigned const char *result=NULL;
-
+	int new_sock;
 	pthread_detach(pthread_self());
-	printf("%s\n", "A new thread is spawned");
 
 	if (arg == NULL) pthread_exit(NULL); 
 	data = (thread_data *)arg;
 	
 	new_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (connect(new_sock, (struct sockaddr *)&data->red_addr, sizeof(data->red_addr)) == -1) {
+	if (connect(new_sock, (struct sockaddr *)&data->red_addr, sizeof(data->red_addr)) == -1)
+	{
 		printf("Connect failed!!!\n");
 		pthread_exit(NULL);
 	}
+
 	int flags = fcntl(data->socket, F_GETFL);
 	if (flags == -1)
 		goto exit;
@@ -143,28 +181,12 @@ void* process_request(void* arg) {
 		goto exit;
 	fcntl(new_sock, F_SETFL, flags | O_NONBLOCK);
 
-	memset(buffer, 0, sizeof(buffer));
-	while (1) {
-		while ((n = read(data->socket, buffer, PAGE_SIZE)) >= 0) {
-			if (n == 0) goto exit;
-			result = decrypt_buffer((const unsigned char *)buffer, n, data->key);
-			if (result == NULL)
-				goto exit;
-			write(new_sock, result, n - AES_BLOCK_SIZE);
-			free((void *)result);
-			if (n < PAGE_SIZE)
-				break;
-		}
-		while ((n = read(new_sock, buffer, PAGE_SIZE)) > 0) {
-			if (n == 0) goto exit;
-			result = encrypt_buffer((const unsigned char *)buffer, n, data->key);
-			if (result == NULL)
-				goto exit;    
-            write(data->socket, result, n + AES_BLOCK_SIZE);                   
-            free((void *)result);
-			if (n < PAGE_SIZE)
-				break;
-		}
+	while (1) 
+	{
+		if(read_from_pbproxy_write_to_server(new_sock, data) == -1)
+			goto exit;
+		if(read_from_server_write_to_pbproxy(new_sock, data) == -1)
+			goto exit;
 	}
 
 exit:
@@ -211,6 +233,7 @@ void client_read_socket_write_to_stdout(int sockfd, const unsigned char *key)
 			break;
 	}
 }
+
 int main(int argc, char *argv[]) {
 	int opt, dst_port, error = 0;
 	char *listening_port = NULL;
