@@ -178,8 +178,15 @@ void* process_request(void* arg) {
 	int new_sock;
 	pthread_detach(pthread_self());
 
+	// Error Checks
 	if (arg == NULL) pthread_exit(NULL); 
 	data = (thread_data *)arg;
+
+	// Error Checks
+	int flags = fcntl(data->socket, F_GETFL);
+	if (flags == -1)
+		goto exit;
+	fcntl(data->socket, F_SETFL, flags | O_NONBLOCK);
 	
 	new_sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (connect(new_sock, (struct sockaddr *)&data->red_addr, sizeof(data->red_addr)) == -1)
@@ -188,10 +195,6 @@ void* process_request(void* arg) {
 		pthread_exit(NULL);
 	}
 
-	int flags = fcntl(data->socket, F_GETFL);
-	if (flags == -1)
-		goto exit;
-	fcntl(data->socket, F_SETFL, flags | O_NONBLOCK);
 	flags = fcntl(new_sock, F_GETFL);
 	if (flags == -1)
 		goto exit;
