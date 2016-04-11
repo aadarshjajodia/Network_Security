@@ -1,4 +1,4 @@
-In this assignment you will develop a "plugboard" proxy for adding an extra 
+In this assignment we will develop a "plugboard" proxy for adding an extra 
 layer of protection to publicly accessible network services.
 Instead of connecting directly to the service, clients connect to pbproxy
 (running on the same server), which then relays all traffic to the actual service.
