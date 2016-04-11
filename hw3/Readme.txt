@@ -28,12 +28,14 @@ pbproxy -l <port> -k keyfile destination port
 	pbproxy -k keyfile destination port
 
 Testing the code.
-1. 
+
+Test 1.
 	On the server side
 	./pbproxy -l 2222 -k key localhost 22
 	On the client side
 	ssh -o "ProxyCommand ./pbproxy -k key localhost 2222" localhost
-2. 
+
+Test 2. 
 	On the server.
 	First we run nc.
 	nc -l 12345
