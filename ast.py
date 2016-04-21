@@ -748,11 +748,10 @@ class ConstantExpr(Expr):
     
     def generate_code(self):
         global temporaryregisternumber
-        print "Value of", temporaryregisternumber
         self.register = "t" + str(temporaryregisternumber)
         if (self.kind == 'int'):
             amifile.write("\tmove_immed_i " + self.register + ", {0}\n".format(str(self.int)))
-        elif (self.king == 'float'):
+        elif (self.kind == 'float'):
             amifile.write("\tmove_immed_f " + self.register + ", {0}\n".format(str(self.float)))
         temporaryregisternumber = temporaryregisternumber + 1
         return self.register
@@ -859,6 +858,19 @@ class BinaryExpr(Expr):
                         signal_type_error('Type error in arguments of binary {0} expression: compatible types expected, found {1} and {2}'.format(self.bop, str(arg1type), str(arg2type)), self.lines)
                        
         return self.__typeof
+
+    def generate_code(self):
+        r2 = self.arg1.generate_code()
+        r3 = self.arg2.generate_code()
+        global temporaryregisternumber
+        r1 = "t" + str(temporaryregisternumber)
+        temporaryregisternumber = temporaryregisternumber + 1
+
+        if self.__typeof.isint():
+            amifile.write("\ti" + self.bop + " {0}, {1}, {2}\n".format(r1, r2, r3))
+        elif self.__typeof.isnumeric():
+            amifile.write("\tf" + self.bop + " {0}, {1}, {2}\n".format(r1, r2, r3))
+        return r1
 
 class AssignExpr(Expr):
     def __init__(self, lhs, rhs, lines):
