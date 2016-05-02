@@ -192,15 +192,18 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 			const struct udphdr *udp;            /* The UDP header */
 			udp = (struct udphdr*)(packet + SIZE_ETHERNET + size_ip);
 
-			sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
-			sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
-
 			*payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + 8);
 			*size_payload = ntohs(ip->ip_len) - (size_ip + 8);
-			if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
-				sprintf(args + strlen(args), " Payload (%d bytes):", *size_payload);
-				printf("%s\n", args);
-				print_payload(*payload, *size_payload);
+
+			if(ntohs(udp->uh_sport) == 53 || ntohs(udp->uh_dport) == 53)
+			{
+				sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
+				sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
+				if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
+					sprintf(args + strlen(args), " Payload (%d bytes):", *size_payload);
+					printf("%s\n", args);
+					print_payload(*payload, *size_payload);
+				}
 			}
 			break;
 		default:
