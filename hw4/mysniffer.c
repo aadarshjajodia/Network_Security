@@ -1,9 +1,7 @@
 #include <pcap.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
 #include <netinet/udp.h>
 #include <netinet/if_ether.h>
 #include <arpa/inet.h>
@@ -77,21 +75,15 @@ void send_forged_dns_response(unsigned long destination_address, u_int16_t desti
 							char *data, u_short ip_length)
 {
 	int sd, one = 1;
-	const int *val = &one;
-	
-	// Source
+
 	struct sockaddr_in source;
 	sd = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
 
-	struct in_addr addr;
 	source.sin_family = AF_INET;
 	source.sin_port = destination_port;
-	//inet_aton(temp, &addr);
 	source.sin_addr.s_addr = destination_address;
 	
-	// Inform the kernel do not fill up the headers' structure, we fabricated our own
-	setsockopt(sd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one));
-
+	setsockopt(sd, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one));
 	sendto(sd, data, ip_length, 0, (struct sockaddr *)&source, sizeof(source));
 	close(sd);
 }
@@ -258,7 +250,7 @@ int main(int argc, char **argv)
 					stringExpression = optarg;
 					break;
 			default:
-					abort();
+					return -1;
 		}
 
     }
@@ -271,7 +263,7 @@ int main(int argc, char **argv)
 		if (dev == NULL) {
 			fprintf(stderr, "Couldn't find default device: %s\n",
 			    errbuf);
-			exit(EXIT_FAILURE);
+			return -1;
 		}
 	}
 	if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
@@ -286,7 +278,7 @@ int main(int argc, char **argv)
 		handle = pcap_open_offline(pcapFileName, errbuf);
 		if (handle == NULL) {
 			fprintf(stderr, "Couldn't open file %s: %s\n", pcapFileName, errbuf);
-			exit(EXIT_FAILURE);
+			return -1;
 		}
 	}
 	else
@@ -294,27 +286,27 @@ int main(int argc, char **argv)
 		handle = pcap_open_live(dev, SNAP_LEN, 0, 1000, errbuf);
 		if (handle == NULL) {
 			fprintf(stderr, "Couldn't open device %s: %s\n", dev, errbuf);
-			exit(EXIT_FAILURE);
+			return -1;
 		}
 	}
 
 	if (pcap_datalink(handle) != DLT_EN10MB) {
 		fprintf(stderr, "%s is not an Ethernet\n", dev);
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	/* compile the filter expression */
 	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
 		fprintf(stderr, "Couldn't parse filter %s: %s\n",
 		    filter_exp, pcap_geterr(handle));
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	/* apply the compiled filter */
 	if (pcap_setfilter(handle, &fp) == -1) {
 		fprintf(stderr, "Couldn't install filter %s: %s\n",
 		    filter_exp, pcap_geterr(handle));
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	/* now we can set our callback function */
