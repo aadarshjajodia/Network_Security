@@ -308,14 +308,15 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, 
 				char name1[100];
 				//memset(name1, '\0', sizeof(name1));
 				char *domain = (char*)(packet + SIZE_ETHERNET + size_ip + 8 + SIZE_DNS_HEADER);
+				int domain_length = strlen(domain);
 
 				struct dns_answer* spoofed_dns_answer = (struct dns_answer*)(datagram + size_ip + 8 + SIZE_DNS_HEADER);
-				//spoofed_dns_answer->name = (u_char*)malloc(strlen(domain)*sizeof(char));
+
 				strcpy((char*)spoofed_dns_answer->name, (const char*)domain);
 
 				const struct dns_query *query;
 				query = (struct dns_query*)(packet + SIZE_ETHERNET + size_ip + 8 + SIZE_DNS_HEADER \
-										 + strlen(domain) + 1);
+										 + domain_length + 1);
 
 
 				// Copying the null terminator for end of the domain and also copying the type and class fields
@@ -323,14 +324,14 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, 
 				// Populating Answer Data
 				struct dns_answer_data* answer_data;
 				answer_data = (struct dns_answer_data*)(datagram + size_ip + 8 + SIZE_DNS_HEADER \
-						    + strlen(domain) + 1);
+						    + domain_length + 1);
 				answer_data->type = query->type;
 				answer_data->class = query->class;
 
 				
 				struct dns_answer_data_1* answer_data1;
 				answer_data1 = (struct dns_answer_data_1*)(datagram + size_ip + 8 + SIZE_DNS_HEADER \
-						    + strlen(domain) + 1 + sizeof(struct dns_answer_data));
+						    + domain_length + 1 + sizeof(struct dns_answer_data));
 				answer_data1->name = htons(49164);  // c0 0c
 				answer_data1->type = query->type;
 				answer_data1->class = query->class;
