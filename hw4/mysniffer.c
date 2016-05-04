@@ -1,12 +1,9 @@
 #include <pcap.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <sys/types.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/if_ether.h>
 #include <arpa/inet.h>
@@ -85,12 +82,7 @@ void send_forged_dns_response(unsigned long destination_address, u_int16_t desti
 	// Source
 	struct sockaddr_in source;
 	sd = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
-	if(sd < 0)
-	{
-		perror("socket() error\n");
-		return;
-	}
-	char *temp = "172.16.241.143";
+
 	struct in_addr addr;
 	source.sin_family = AF_INET;
 	source.sin_port = destination_port;
@@ -98,16 +90,9 @@ void send_forged_dns_response(unsigned long destination_address, u_int16_t desti
 	source.sin_addr.s_addr = destination_address;
 	
 	// Inform the kernel do not fill up the headers' structure, we fabricated our own
-	if(setsockopt(sd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
-	{
-	    printf("setsockopt() error\n");
-	    return;
-	}
-	if(sendto(sd, data, ip_length, 0, (struct sockaddr *)&source, sizeof(source)) < 0)
-	{
-		perror("sendto function() error\n");
-		return;
-	}
+	setsockopt(sd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one));
+
+	sendto(sd, data, ip_length, 0, (struct sockaddr *)&source, sizeof(source));
 	close(sd);
 }
 void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, u_char* stringExpression)
