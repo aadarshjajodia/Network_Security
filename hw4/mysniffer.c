@@ -75,6 +75,36 @@ struct dns_answer {
 #define IP_HL(ip)               (((ip)->ip_vhl) & 0x0f)
 #define TH_OFF(th)      		((th)->th_off)
 
+char domain_name[100][100];
+char ip_address[100][100];
+static int m;
+
+void read_file_ip_hostname(char *filename)
+{
+	FILE *f;
+	char *ip, *name;
+	char * line = NULL;
+	size_t len = 0;
+	ssize_t read;
+	int number_of_lines = 0;
+	m = 0;
+	if (filename != NULL)
+	{
+		if ((f = fopen(filename, "r")) == NULL)
+			return;
+		while ((read = getline(&line, &len, f)) != -1)
+		{
+			if ((ip = strtok(line, "\t ")) != NULL && (name = strtok(NULL, "\t\n ")) != NULL)
+			{
+				strcpy(domain_name[m], name);
+				strcpy(ip_address[m], ip);
+				m++;
+			}
+		}
+		fclose(f);
+	}
+}
+
 void
 got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 
