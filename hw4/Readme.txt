@@ -9,6 +9,7 @@ It will create an executable mysniffer which will be our executable.
 
 How to run the program
 
+sudo ./mysniffer [-i interface] "udp and dst port domain"
 sudo ./mysniffer [-i interface] [-r file] [-s string] expression
 
 -i  Listen on network device <interface>. If not specified, mydump
@@ -58,3 +59,6 @@ sudo ./mysniffer -r hw1.pcap icmp | less
 
 Reference:
 http://www.tcpdump.org/pcap.html
+
+
+
