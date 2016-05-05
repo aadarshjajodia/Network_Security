@@ -287,7 +287,9 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, 
 				answer_data1->class = query->class;
 				answer_data1->ttl = htonl(600); // Keeping a 
 				answer_data1->rdlength = htons(4); // ip value is 4 bytes, hence this is 4
-				answer_data1->rdata = htonl(2130706432);  // 127.0.0.0
+				struct in_addr addr;
+				inet_pton(AF_INET, "127.0.0.1", &addr);
+				answer_data1->rdata = addr.s_addr; //htonl(2130706432);  // 127.0.0.0
 
 				if(ntohs(query->type) != 1 || ntohs(query->class) != 1)
 				    return;
