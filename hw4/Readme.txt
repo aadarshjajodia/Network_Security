@@ -60,5 +60,4 @@ sudo ./mysniffer -r hw1.pcap icmp | less
 Reference:
 http://www.tcpdump.org/pcap.html
 
-
-
+Assumes that the file entered by the user using the -f option is of the correct format
