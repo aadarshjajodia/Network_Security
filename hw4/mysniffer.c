@@ -13,6 +13,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
 
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
@@ -78,7 +80,25 @@ struct dns_answer {
 char domain_name[100][100];
 char ip_address[100][100];
 static int m;
+char attacker_ip[20];
 
+void get_attacker_machine_ip_address(char *device)
+{
+	int fd;
+	struct ifreq ifr;
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+	ifr.ifr_addr.sa_family = AF_INET;
+
+	strncpy(ifr.ifr_name, device, IFNAMSIZ-1);
+
+	ioctl(fd, SIOCGIFADDR, &ifr);
+	close(fd);
+
+	strcpy(attacker_ip, inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+
+}
 void read_file_ip_hostname(char *filename)
 {
 	FILE *f;
@@ -311,8 +331,8 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 				char *domain = (char*)(packet + SIZE_ETHERNET + size_ip + 8 + SIZE_DNS_HEADER);
 				char request[100];
 				extract_dns_request(domain, request);
-				fprintf(stderr, "Domain Name is %s\n", request);
 				char temp[20];
+				strcpy(temp, attacker_ip);
 				int flag = 0, i;
 				if(m>0)
 				{
@@ -324,9 +344,9 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 							flag = 1;
 							break;
 						}
+					if(flag == 0)
+						return;
 				}
-				if(flag == 0)
-					return;
 
 				int domain_length = strlen(domain);
 
@@ -447,6 +467,8 @@ int main(int argc, char **argv)
 			return -1;
 		}
 	}
+
+	get_attacker_machine_ip_address(dev);
 	if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
 		fprintf(stderr, "Couldn't get netmask for device %s: %s\n",
 		    dev, errbuf);
