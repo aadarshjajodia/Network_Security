@@ -105,6 +105,27 @@ void read_file_ip_hostname(char *filename)
 	}
 }
 
+void extract_dns_request(char *hostname, char *request)
+{
+	unsigned int i, j, k;
+	char *curr = hostname;
+	unsigned int size;
+	size = curr[0];
+	j=0;
+	i=1;
+	while(size > 0)
+	{
+		for(k=0; k<size; k++)
+		{
+			request[j++] = curr[i+k];
+		}
+		request[j++]='.';
+		i+=size;
+		size = curr[i++];
+	}
+	request[--j] = '\0';
+}
+
 void
 got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 
