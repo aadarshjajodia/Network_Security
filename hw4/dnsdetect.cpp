@@ -270,13 +270,13 @@ int main(int argc, char **argv)
 	int num_packets = 0, index;			/* number of packets to capture */
 
 	char c;
-	while ((c = getopt (argc, argv, "i:f:")) != -1)
+	while ((c = getopt (argc, argv, "i:r:")) != -1)
 	{
 		switch(c) {
 			case 'i':
 					dev = optarg;
 					break;
-			case 'f':
+			case 'r':
 					pcapFileName = optarg;
 					break;
 			default:
