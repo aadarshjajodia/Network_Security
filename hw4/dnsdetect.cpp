@@ -208,7 +208,7 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 			{
 					const struct dns_header *dns;
 					dns = (struct dns_header*)(packet + SIZE_ETHERNET + size_ip + 8);
-					fprintf(stderr, "Answer count is %d\n", ntohs(dns->ancount));
+					fprintf(stderr, "DNS ID is %d Answer count is %d\n", ntohs(dns->id), ntohs(dns->ancount));
 
 					// Forging the DNS Answer
 
