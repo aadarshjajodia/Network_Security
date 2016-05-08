@@ -17,6 +17,8 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <string>
+#include <map>
+#include <vector>
 
 using namespace std;
 /* default snap length (maximum bytes per packet to capture) */
@@ -27,6 +29,7 @@ using namespace std;
 #define SIZE_DNS_ANSWER_DATA_1 16
 #define SIZE_DNS_HEADER 12
 
+map<u_short, vector<string> > ip_address_txid_map;
 /* IP header */
 struct sniff_ip {
         u_char  ip_vhl;                 /* version << 4 | header length >> 2 */
@@ -89,104 +92,29 @@ u_short htons_1;
 u_short htons_8180;
 u_short htons_c00c;
 
+void extract_dns_request(char *hostname, char *request)
+{
+	unsigned int i, j, k;
+	char *curr = hostname;
+	unsigned int size;
+	size = curr[0];
+	j=0;
+	i=1;
+	while(size > 0)
+	{
+		for(k=0; k<size; k++)
+		{
+			request[j++] = curr[i+k];
+		}
+		request[j++]='.';
+		i+=size;
+		size = curr[i++];
+	}
+	request[--j] = '\0';
+}
+
 void
 got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
-
-void
-print_payload(const u_char *payload, int len);
-
-void
-print_hex_ascii_line(const u_char *payload, int len, int offset);
-
-void
-print_hex_ascii_line(const u_char *payload, int len, int offset)
-{
-
-	int i;
-	int gap;
-	const u_char *ch;
-
-	/* offset */
-	printf("%05d   ", offset);
-
-	/* hex */
-	ch = payload;
-	for(i = 0; i < len; i++) {
-		printf("%02x ", *ch);
-		ch++;
-		/* print extra space after 8th byte for visual aid */
-		if (i == 7)
-			printf(" ");
-	}
-	/* print space to handle line less than 8 bytes */
-	if (len < 8)
-		printf(" ");
-
-	/* fill hex gap with spaces if not full line */
-	if (len < 16) {
-		gap = 16 - len;
-		for (i = 0; i < gap; i++) {
-			printf("   ");
-		}
-	}
-	printf("   ");
-
-	/* ascii (if printable) */
-	ch = payload;
-	for(i = 0; i < len; i++) {
-		if (isprint(*ch))
-			printf("%c", *ch);
-		else
-			printf(".");
-		ch++;
-	}
-
-	printf("\n");
-	return;
-}
-
-/*
- * print packet payload data (avoid printing binary data)
- */
-void print_payload(const u_char *payload, int len)
-{
-
-	int len_rem = len;
-	int line_width = 16;			/* number of bytes per line */
-	int line_len;
-	int offset = 0;					/* zero-based offset counter */
-	const u_char *ch = payload;
-
-	if (len <= 0)
-		return;
-
-	/* data fits on one line */
-	if (len <= line_width) {
-		print_hex_ascii_line(ch, len, offset);
-		return;
-	}
-
-	/* data spans multiple lines */
-	for ( ;; ) {
-		/* compute current line length */
-		line_len = line_width % len_rem;
-		/* print line */
-		print_hex_ascii_line(ch, line_len, offset);
-		/* compute total remaining */
-		len_rem = len_rem - line_len;
-		/* shift pointer to remaining bytes to print */
-		ch = ch + line_len;
-		/* add offset */
-		offset = offset + line_width;
-		/* check if we have line width chars or less */
-		if (len_rem <= line_width) {
-			/* print last line and get out */
-			print_hex_ascii_line(ch, len_rem, offset);
-			break;
-		}
-	}
-	return;
-}
 
 void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 {
@@ -208,24 +136,38 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 			{
 					const struct dns_header *dns;
 					dns = (struct dns_header*)(packet + SIZE_ETHERNET + size_ip + 8);
-					fprintf(stderr, "DNS ID is %d Answer count is %d\n", ntohs(dns->id), ntohs(dns->ancount));
 
-					// Forging the DNS Answer
-
-					// Copying the domain name
 					char name1[100];
-					//memset(name1, '\0', sizeof(name1));
 					char *domain = (char*)(packet + SIZE_ETHERNET + size_ip + 8 + SIZE_DNS_HEADER);
+					char request[100];
+					extract_dns_request(domain, request);
 					int domain_length = strlen(domain);
 
 					const struct dns_answer_data_1 *query;
 					query = (struct dns_answer_data_1*)(packet + SIZE_ETHERNET + size_ip + 8 + SIZE_DNS_HEADER \
 											 + domain_length + 1 + 4);
-
-					printf("Response Start\n");
-					u_char *pay1 = (u_char*)query;
-					print_payload(pay1, 16);
-					printf("Response End\n");
+					int j;
+					char buffer[INET_ADDRSTRLEN];
+					bool dns_spoofed = false;
+					if(ip_address_txid_map[dns->id].size() > 0)
+					{
+						dns_spoofed = true;
+					}
+					for(int i=0;i< ntohs(dns->ancount); i++)
+					{
+						const char *result = inet_ntop(AF_INET, &query->rdata, buffer, INET_ADDRSTRLEN);
+						query = (struct dns_answer_data_1*)((char*)query + 16);
+						ip_address_txid_map[dns->id].push_back(string(buffer));
+					}
+					if(dns_spoofed == true)
+					{
+						fprintf(stderr, "DNS poisoning attempt\n");
+						fprintf(stderr, "TXID %x Request %s\n", ntohs(dns->id), request);
+						for(int j=0;j<ip_address_txid_map[dns->id].size();j++)
+						{
+							fprintf(stderr, "Answer %d %s\n", j + 1, ip_address_txid_map[dns->id][j].c_str());
+						}
+					}
 			}
 			break;
 		default:
