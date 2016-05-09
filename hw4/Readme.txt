@@ -62,3 +62,6 @@ http://www.tcpdump.org/pcap.html
 http://stackoverflow.com/questions/2283494/get-ip-address-of-an-interface-on-linux
 
 Assumes that the file entered by the user using the -f option is of the correct format
+
+Tested with the following
+nslookup www.hdfcbank.com 8.8.4.4
