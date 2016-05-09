@@ -149,25 +149,33 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 					int j;
 					char buffer[INET_ADDRSTRLEN];
 					bool dns_spoofed = false;
-					if(ip_address_txid_map[dns->id].size() > 0)
-					{
-						dns_spoofed = true;
-					}
-					for(int i=0;i< ntohs(dns->ancount); i++)
-					{
-						const char *result = inet_ntop(AF_INET, &query->rdata, buffer, INET_ADDRSTRLEN);
-						query = (struct dns_answer_data_1*)((char*)query + 16);
-						ip_address_txid_map[dns->id].push_back(string(buffer));
-					}
-					if(dns_spoofed == true)
-					{
+				   	if(ip_address_txid_map[dns->id].size() > 0)
+				    {
 						fprintf(stderr, "DNS poisoning attempt\n");
 						fprintf(stderr, "TXID %x Request %s\n", ntohs(dns->id), request);
+						fprintf(stderr, "Answer1 ");
 						for(int j=0;j<ip_address_txid_map[dns->id].size();j++)
 						{
-							fprintf(stderr, "Answer %d %s\n", j + 1, ip_address_txid_map[dns->id][j].c_str());
+					    	    fprintf(stderr, "%s ", ip_address_txid_map[dns->id][j].c_str());
 						}
-					}
+						fprintf(stderr, "\nAnswer2 ");
+				    	for(int i=0;i< ntohs(dns->ancount); i++)
+				    	{
+							const char *result = inet_ntop(AF_INET, &query->rdata, buffer, INET_ADDRSTRLEN);
+							query = (struct dns_answer_data_1*)((char*)query + 16);
+					    	fprintf(stderr, "%s ", buffer);
+						}
+						fprintf(stderr, "\n");
+				    }
+					else
+					{
+				    	for(int i=0;i< ntohs(dns->ancount); i++)
+				    	{
+							const char *result = inet_ntop(AF_INET, &query->rdata, buffer, INET_ADDRSTRLEN);
+							query = (struct dns_answer_data_1*)((char*)query + 16);
+					    	ip_address_txid_map[dns->id].push_back(string(buffer));
+						}
+				    }
 			}
 			break;
 		default:
