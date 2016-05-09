@@ -496,7 +496,7 @@ int main(int argc, char **argv)
 
     string filter_expression_final = "udp and dst port domain";
     if(filter_exp != NULL)
-        filter_expression_final = filter_expression_final + string(filter_exp);
+        filter_expression_final = filter_expression_final + " and " + string(filter_exp);
 
 	/* compile the filter expression */
 	if (pcap_compile(handle, &fp, filter_expression_final.c_str(), 0, net) == -1) {

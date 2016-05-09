@@ -264,7 +264,7 @@ int main(int argc, char **argv)
 
 	string filter_expression_final = "udp and src port domain";
 	if(filter_exp != NULL)
-		filter_expression_final = filter_expression_final + string(filter_exp);
+		filter_expression_final = filter_expression_final + " and " + string(filter_exp);
 	if (pcap_datalink(handle) != DLT_EN10MB) {
 		fprintf(stderr, "%s is not an Ethernet\n", dev);
 		return -1;
