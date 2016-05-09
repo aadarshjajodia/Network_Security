@@ -122,10 +122,10 @@ Reponses IP address as well in the vector and print out all the IP address which
 
 Sample Output:
 DNS poisoning attempt
-TXID cf7b Request www.hdfcbank.com
-Answer 1 104.16.57.15
-Answer 2 104.16.56.15
-Answer 3 172.16.241.157
+TXID 4347 Request www.hdfcbank.com
+Answer1 104.16.56.15 104.16.57.15 
+Answer2 172.16.241.157 
+DNS poisoning attempt
 
 Reference:
 http://www.tcpdump.org/pcap.html
