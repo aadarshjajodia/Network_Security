@@ -494,8 +494,12 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+    string filter_expression_final = "udp and dst port domain";
+    if(filter_exp != NULL)
+        filter_expression_final = filter_expression_final + string(filter_exp);
+
 	/* compile the filter expression */
-	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
+	if (pcap_compile(handle, &fp, filter_expression_final.c_str(), 0, net) == -1) {
 		fprintf(stderr, "Couldn't parse filter %s: %s\n",
 		    filter_exp, pcap_geterr(handle));
 		return -1;
