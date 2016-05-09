@@ -1,13 +1,17 @@
 # the compiler: gcc for C program
 CC = gcc
+CPLUSPLUS = g++ 
 
 # the build target executable:
-TARGET = mysniffer
+TARGET = mysniffer dnsdetect
 
-all: $(TARGET)
+all: dnsdetect mysniffer
 
-$(TARGET): $(TARGET).c
-	$(CC) -o $(TARGET) $(TARGET).c -lpcap
+dnsdetect: dnsdetect.cpp
+	$(CPLUSPLUS) -o dnsdetect dnsdetect.cpp -lpcap
+
+mysniffer: mysniffer.c
+	$(CC) -o mysniffer mysniffer.c -lpcap
 
 clean:
 	$(RM) $(TARGET)
