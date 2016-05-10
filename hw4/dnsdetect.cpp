@@ -143,6 +143,12 @@ void print_ip_packet(const u_char *packet, u_char **payload, int *size_payload)
 					extract_dns_request(domain, request);
 					int domain_length = strlen(domain);
 
+					const struct dns_query *query1;
+					query1 = (struct dns_query*)(packet + SIZE_ETHERNET + size_ip + 8 + SIZE_DNS_HEADER \
+											 + domain_length + 1);
+					if(ntohs(query1->type) != 1 ||  ntohs(query1->class1) != 1)
+						return;
+
 					const struct dns_answer_data_1 *query;
 					query = (struct dns_answer_data_1*)(packet + SIZE_ETHERNET + size_ip + 8 + SIZE_DNS_HEADER \
 											 + domain_length + 1 + 4);
